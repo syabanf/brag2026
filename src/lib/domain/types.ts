@@ -244,6 +244,34 @@ export type MemberBadge = {
   ikon?: string;
 };
 
+// ─── Leaderboard Team History ────────────────────────────────────────────────
+
+// Attribution mirrors the leaderboard aggregation: a TYFCB entry belongs to the
+// buyer's team (giver_id), which is the side that earns the points.
+export type TeamTyfcbHistoryRow = {
+  id: string;
+  buyer_name: string;   // giver_id — team member who earns the points
+  seller_name: string;  // receiver_id — counterparty who closed the business
+  nilai: number;
+  tanggal: string;
+  computed_score: number | null;
+};
+
+export type TeamVisitorHistoryRow = {
+  id: string;
+  nama: string;
+  inviter_name: string;
+  tanggal_undang: string;
+  status_hadir: VisitorStatus;
+  is_converted: boolean;
+};
+
+export type TeamHistoryResponse = {
+  nama_tim: string;
+  tyfcb: TeamTyfcbHistoryRow[];
+  visitors: TeamVisitorHistoryRow[];
+};
+
 // ─── Prize Pool & Raffle ─────────────────────────────────────────────────────
 
 export type PrizePool = {

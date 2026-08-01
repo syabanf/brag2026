@@ -14,7 +14,9 @@ async function getSeasonId(): Promise<string | null> {
 async function getTeamStandings(seasonId: string): Promise<TeamRow[]> {
   const { rows } = await query<TeamRow>(`
     with tyfcb_by_team as (
-      select m.team_id, coalesce(sum(te.nilai), 0)::bigint as nilai_tyfcb
+      select m.team_id,
+             coalesce(sum(te.nilai), 0)::bigint as nilai_tyfcb,
+             count(te.id)::int                  as count_tyfcb
       from tyfcb_entries te
       join members m on m.id = te.giver_id and m.season_id = $1
       where te.status = 'verified'
@@ -24,6 +26,7 @@ async function getTeamStandings(seasonId: string): Promise<TeamRow[]> {
       select m.team_id, count(v.id)::int as count_visitor
       from visitors v
       join members m on m.id = v.inviter_id and m.season_id = $1
+      where v.is_void = false
       group by m.team_id
     )
     select
@@ -31,13 +34,14 @@ async function getTeamStandings(seasonId: string): Promise<TeamRow[]> {
       t.nama_tim,
       coalesce(sum(sl.points), 0)::int as score_overall,
       coalesce(tt.nilai_tyfcb, 0)    as nilai_tyfcb,
+      coalesce(tt.count_tyfcb, 0)    as count_tyfcb,
       coalesce(vt.count_visitor, 0)  as count_visitor
     from teams t
     left join score_ledger sl on sl.team_id = t.id and sl.season_id = $1
     left join tyfcb_by_team tt on tt.team_id = t.id
     left join visitor_by_team vt on vt.team_id = t.id
     where t.season_id = $1
-    group by t.id, t.nama_tim, tt.nilai_tyfcb, vt.count_visitor
+    group by t.id, t.nama_tim, tt.nilai_tyfcb, tt.count_tyfcb, vt.count_visitor
     order by score_overall desc, substring(t.nama_tim, 6)::int
   `, [seasonId]);
   return rows;

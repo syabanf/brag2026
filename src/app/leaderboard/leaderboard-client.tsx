@@ -4,6 +4,7 @@ import { BarChart3, Check, Copy, Share2, Trophy, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { formatPoints } from "@/lib/utils";
+import { TeamHistoryDialog, type HistoryKind } from "./team-history-dialog";
 
 type Tab = "overall" | "tyfcb" | "visitor";
 
@@ -12,6 +13,7 @@ export type TeamRow = {
   nama_tim: string;
   score_overall: number;
   nilai_tyfcb: number;    // collective sum of verified tyfcb_entries.nilai (Rp)
+  count_tyfcb: number;    // number of verified tyfcb_entries behind nilai_tyfcb
   count_visitor: number;  // count of visitors invited by team members
 };
 
@@ -50,6 +52,11 @@ function formatTeamTabScore(team: TeamRow, tab: Tab): string {
   return `${formatPoints(team.score_overall)} pts`;
 }
 
+function formatTeamTabSubScore(team: TeamRow, tab: Tab): string | null {
+  if (tab === "tyfcb") return `${team.count_tyfcb}× TYFCB`;
+  return null;
+}
+
 export function LeaderboardClient({
   teams,
   members,
@@ -58,6 +65,7 @@ export function LeaderboardClient({
   members: MemberRow[];
 }) {
   const [tab, setTab] = useState<Tab>("overall");
+  const [history, setHistory] = useState<{ team: TeamRow; kind: HistoryKind } | null>(null);
 
   const sortedTeams   = [...teams].sort((a, b) => teamSortKey(b, tab) - teamSortKey(a, tab));
   const sortedMembers = [...members].sort((a, b) => memberScore(b, tab) - memberScore(a, tab));
@@ -111,17 +119,35 @@ export function LeaderboardClient({
                     </span>
                     <p className={`truncate text-lg font-black ${nameCls}`}>{team.nama_tim}</p>
                   </div>
-                  <p className={`text-xl font-black ${scoreCls}`}>
-                    {formatTeamTabScore(team, tab)}
-                  </p>
+                  <div className="shrink-0 text-right">
+                    <p className={`text-xl font-black ${scoreCls}`}>
+                      {formatTeamTabScore(team, tab)}
+                    </p>
+                    {formatTeamTabSubScore(team, tab) && (
+                      <p className={`text-xs font-bold opacity-70 ${scoreCls}`}>
+                        {formatTeamTabSubScore(team, tab)}
+                      </p>
+                    )}
+                  </div>
                 </div>
                 <div className="mt-4 grid grid-cols-2 gap-2 text-center text-xs font-bold">
-                  <div className={`rounded-xl p-2 ${chipCls}`}>
-                    TYFCB Rp {Number(team.nilai_tyfcb).toLocaleString("id-ID")}
-                  </div>
-                  <div className={`rounded-xl p-2 ${chipCls}`}>
+                  <button
+                    type="button"
+                    onClick={() => setHistory({ team, kind: "tyfcb" })}
+                    aria-label={`Lihat riwayat TYFCB ${team.nama_tim}`}
+                    className={`flex flex-col justify-center rounded-xl p-2 transition hover:brightness-105 active:scale-[0.97] ${chipCls}`}
+                  >
+                    <span>TYFCB Rp {Number(team.nilai_tyfcb).toLocaleString("id-ID")}</span>
+                    <span className="opacity-70">{team.count_tyfcb}× transaksi</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setHistory({ team, kind: "visitor" })}
+                    aria-label={`Lihat riwayat Visitor ${team.nama_tim}`}
+                    className={`flex flex-col justify-center rounded-xl p-2 transition hover:brightness-105 active:scale-[0.97] ${chipCls}`}
+                  >
                     Visitor {team.count_visitor}
-                  </div>
+                  </button>
                 </div>
               </div>
               );
@@ -162,6 +188,15 @@ export function LeaderboardClient({
           </div>
         </section>
       </div>
+
+      {history && (
+        <TeamHistoryDialog
+          teamId={history.team.team_id}
+          teamName={history.team.nama_tim}
+          kind={history.kind}
+          onClose={() => setHistory(null)}
+        />
+      )}
     </>
   );
 }

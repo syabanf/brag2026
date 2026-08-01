@@ -7,6 +7,7 @@ type TeamRow = {
   nama_tim: string;
   score_overall: number;
   nilai_tyfcb: number;
+  count_tyfcb: number;
   count_visitor: number;
 };
 
@@ -14,7 +15,8 @@ async function getTeamStandings(): Promise<TeamRow[]> {
   const { rows } = await query<TeamRow>(`
     with tyfcb_by_team as (
       select m.team_id,
-             coalesce(sum(te.nilai), 0)::bigint as nilai_tyfcb
+             coalesce(sum(te.nilai), 0)::bigint as nilai_tyfcb,
+             count(te.id)::int                  as count_tyfcb
       from tyfcb_entries te
       join members m on m.id = te.giver_id
       join event_seasons es on es.id = m.season_id and es.nama = 'BRAG 2026'
@@ -26,6 +28,7 @@ async function getTeamStandings(): Promise<TeamRow[]> {
       from visitors v
       join members m on m.id = v.inviter_id
       join event_seasons es on es.id = m.season_id and es.nama = 'BRAG 2026'
+      where v.is_void = false
       group by m.team_id
     )
     select
@@ -33,13 +36,14 @@ async function getTeamStandings(): Promise<TeamRow[]> {
       t.nama_tim,
       coalesce(sum(sl.points), 0)::int as score_overall,
       coalesce(tt.nilai_tyfcb, 0)      as nilai_tyfcb,
+      coalesce(tt.count_tyfcb, 0)      as count_tyfcb,
       coalesce(vt.count_visitor, 0)    as count_visitor
     from teams t
     join event_seasons es on es.id = t.season_id and es.nama = 'BRAG 2026'
     left join score_ledger sl     on sl.team_id = t.id and sl.season_id = es.id
     left join tyfcb_by_team tt    on tt.team_id = t.id
     left join visitor_by_team vt  on vt.team_id = t.id
-    group by t.id, t.nama_tim, tt.nilai_tyfcb, vt.count_visitor
+    group by t.id, t.nama_tim, tt.nilai_tyfcb, tt.count_tyfcb, vt.count_visitor
     order by score_overall desc, substring(t.nama_tim, 6)::int
   `, []);
   return rows;
@@ -140,10 +144,11 @@ export default async function PublicLeaderboardPage() {
                   </div>
                 </div>
                 <div className="mt-4 grid grid-cols-2 gap-2 text-center text-xs font-bold">
-                  <div className={`rounded-xl px-2 py-2 ${s.chip}`}>
-                    TYFCB Rp {Number(team.nilai_tyfcb).toLocaleString("id-ID")}
+                  <div className={`flex flex-col justify-center rounded-xl px-2 py-2 ${s.chip}`}>
+                    <span>TYFCB Rp {Number(team.nilai_tyfcb).toLocaleString("id-ID")}</span>
+                    <span className="opacity-70">{team.count_tyfcb}× transaksi</span>
                   </div>
-                  <div className={`rounded-xl px-2 py-2 ${s.chip}`}>
+                  <div className={`flex flex-col justify-center rounded-xl px-2 py-2 ${s.chip}`}>
                     Visitor {team.count_visitor}
                   </div>
                 </div>
@@ -167,7 +172,7 @@ export default async function PublicLeaderboardPage() {
                   <div>
                     <p className="font-black text-gray-900">{team.nama_tim}</p>
                     <p className="text-xs text-gray-400">
-                      TYFCB Rp {Number(team.nilai_tyfcb).toLocaleString("id-ID")} · Visitor {team.count_visitor}
+                      TYFCB Rp {Number(team.nilai_tyfcb).toLocaleString("id-ID")} ({team.count_tyfcb}×) · Visitor {team.count_visitor}
                     </p>
                   </div>
                 </div>
