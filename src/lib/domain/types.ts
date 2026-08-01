@@ -256,11 +256,12 @@ export type ClassificationRow = {
 
 // Attribution mirrors the leaderboard aggregation: a TYFCB entry belongs to the
 // buyer's team (giver_id), which is the side that earns the points.
+// The rupiah value is deliberately absent: the history dialog shows points
+// only, and this payload also feeds the unauthenticated public leaderboard.
 export type TeamTyfcbHistoryRow = {
   id: string;
   buyer_name: string;   // giver_id — team member who earns the points
   seller_name: string;  // receiver_id — counterparty who closed the business
-  nilai: number;
   tanggal: string;
   computed_score: number | null;
 };

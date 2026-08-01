@@ -76,9 +76,9 @@ export function TeamHistoryDialog({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [onClose]);
 
-  const isTyfcb   = kind === "tyfcb";
-  const Icon      = isTyfcb ? Gift : UserPlus;
-  const totalNilai = (data?.tyfcb ?? []).reduce((sum, e) => sum + Number(e.nilai), 0);
+  const isTyfcb    = kind === "tyfcb";
+  const Icon       = isTyfcb ? Gift : UserPlus;
+  const totalPoints = (data?.tyfcb ?? []).reduce((sum, e) => sum + (e.computed_score ?? 0), 0);
 
   return createPortal(
     <div
@@ -116,7 +116,7 @@ export function TeamHistoryDialog({
           <div className="flex items-baseline gap-2 border-b border-brand-50 bg-brand-50/40 px-5 py-3">
             <span className="text-xl font-black text-brand-600">
               {isTyfcb
-                ? `Rp ${totalNilai.toLocaleString("id-ID")}`
+                ? `${totalPoints.toLocaleString("id-ID")} pts`
                 : `${data.visitors.length} visitor`}
             </span>
             {isTyfcb && (
@@ -155,11 +155,8 @@ export function TeamHistoryDialog({
                   </div>
                   <div className="shrink-0 text-right">
                     <p className="font-black text-brand-600">
-                      Rp {Number(e.nilai).toLocaleString("id-ID")}
+                      {e.computed_score != null ? `+${e.computed_score} pts` : "—"}
                     </p>
-                    {e.computed_score != null && (
-                      <p className="text-xs font-bold text-muted">+{e.computed_score} pts</p>
-                    )}
                   </div>
                 </li>
               ))}

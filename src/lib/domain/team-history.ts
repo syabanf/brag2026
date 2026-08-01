@@ -33,7 +33,6 @@ export async function getTeamHistory(
         te.id,
         u_buyer.full_name  as buyer_name,
         u_seller.full_name as seller_name,
-        te.nilai::bigint,
         to_char(te.tanggal, 'DD Mon YYYY') as tanggal,
         te.computed_score
       from tyfcb_entries te
@@ -65,7 +64,7 @@ export async function getTeamHistory(
 
   return {
     nama_tim: team.nama_tim,
-    tyfcb: tyfcbResult.rows.map((r) => ({ ...r, nilai: Number(r.nilai) })),
+    tyfcb: tyfcbResult.rows,
     visitors: visitorResult.rows,
   };
 }
