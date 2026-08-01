@@ -223,6 +223,8 @@ export default async function MemberDashboardPage() {
 
   // Season-wide totals, derived from the standings already fetched above.
   const totalTransaksi = teams.reduce((sum, t) => sum + Number(t.count_tyfcb), 0);
+  const totalNominal   = teams.reduce((sum, t) => sum + Number(t.nilai_tyfcb), 0);
+  const totalVisitor   = teams.reduce((sum, t) => sum + Number(t.count_visitor), 0);
 
   return (
     <AppShell>
@@ -241,13 +243,28 @@ export default async function MemberDashboardPage() {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {/* Row 1 = season-wide totals, row 2 = this member's team, aligned by category. */}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             <StatCard
               icon={Receipt}
               label="Total Transaksi"
               value={`${totalTransaksi.toLocaleString("id-ID")}×`}
               helper={`TYFCB verified dari ${teams.length} team`}
               gradient="bg-gradient-to-br from-emerald-100 via-teal-50 to-cyan-100 border-emerald-200 text-emerald-700"
+            />
+            <StatCard
+              icon={Banknote}
+              label="Total Nominal TYFCB"
+              value={`Rp ${totalNominal.toLocaleString("id-ID")}`}
+              helper={`Akumulasi semua ${teams.length} team`}
+              gradient="bg-gradient-to-br from-sky-100 via-blue-50 to-indigo-100 border-sky-200 text-sky-700"
+            />
+            <StatCard
+              icon={Users}
+              label="Total Visitor"
+              value={`${totalVisitor.toLocaleString("id-ID")} tamu`}
+              helper={`Akumulasi semua ${teams.length} team`}
+              gradient="bg-gradient-to-br from-amber-100 via-yellow-50 to-lime-100 border-amber-200 text-amber-700"
             />
             <StatCard
               icon={Trophy}
@@ -257,18 +274,18 @@ export default async function MemberDashboardPage() {
               gradient="bg-gradient-to-br from-red-100 via-rose-50 to-orange-100 border-red-200 text-brand-700"
             />
             <StatCard
-              icon={Users}
-              label="Visitor Team"
-              value={`${Number(myTeam?.count_visitor ?? 0)} tamu`}
-              helper={`Akumulasi undangan ${myTeam?.nama_tim ?? "team"}`}
-              gradient="bg-gradient-to-br from-orange-100 via-amber-50 to-yellow-100 border-orange-200 text-orange-700"
-            />
-            <StatCard
               icon={Banknote}
               label="TYFCB Team"
               value={`Rp ${Number(myTeam?.nilai_tyfcb ?? 0).toLocaleString("id-ID")}`}
               helper={`${Number(myTeam?.count_tyfcb ?? 0)}× transaksi verified`}
               gradient="bg-gradient-to-br from-violet-100 via-purple-50 to-indigo-100 border-violet-200 text-violet-700"
+            />
+            <StatCard
+              icon={Users}
+              label="Visitor Team"
+              value={`${Number(myTeam?.count_visitor ?? 0)} tamu`}
+              helper={`Akumulasi undangan ${myTeam?.nama_tim ?? "team"}`}
+              gradient="bg-gradient-to-br from-orange-100 via-amber-50 to-yellow-100 border-orange-200 text-orange-700"
             />
           </div>
 
