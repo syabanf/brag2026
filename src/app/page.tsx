@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Banknote, ChevronRight, Crown, Gift, Medal, Trophy, UserPlus, Users, Zap } from "lucide-react";
+import { Banknote, ChevronRight, Crown, Gift, Medal, Receipt, Trophy, UserPlus, Users, Zap } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import { StatCard } from "@/components/stat-card";
 import { Button } from "@/components/ui/button";
@@ -221,6 +221,9 @@ export default async function MemberDashboardPage() {
 
   const myTeam = teams.find((t) => t.team_id === member.team_id);
 
+  // Season-wide totals, derived from the standings already fetched above.
+  const totalTransaksi = teams.reduce((sum, t) => sum + Number(t.count_tyfcb), 0);
+
   return (
     <AppShell>
       <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
@@ -238,7 +241,14 @@ export default async function MemberDashboardPage() {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <StatCard
+              icon={Receipt}
+              label="Total Transaksi"
+              value={`${totalTransaksi.toLocaleString("id-ID")}×`}
+              helper={`TYFCB verified dari ${teams.length} team`}
+              gradient="bg-gradient-to-br from-emerald-100 via-teal-50 to-cyan-100 border-emerald-200 text-emerald-700"
+            />
             <StatCard
               icon={Trophy}
               label={`Point ${myTeam?.nama_tim ?? "—"}`}
