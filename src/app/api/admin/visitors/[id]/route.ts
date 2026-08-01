@@ -2,11 +2,19 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth";
 import { query } from "@/lib/db";
 
-const STATUS_ORDER = ["terdaftar", "hadir", "hadir_penuh"];
-const STATUS_POINTS: Record<string, number> = {
-  hadir:       20,
-  hadir_penuh: 30,
+// Cumulative points a visitor has earned once it reaches a given status.
+// Any status change awards (or reverses) the difference between the two.
+const STATUS_CUMULATIVE: Record<string, number> = {
+  terdaftar: 0,
+  hadir: 20,
+  hadir_penuh: 50,
 };
+const STATUS_LABEL: Record<string, string> = {
+  terdaftar: "Terdaftar",
+  hadir: "Hadir",
+  hadir_penuh: "Hadir Penuh",
+};
+const CONVERSION_POINTS = 100;
 
 export async function PATCH(
   req: NextRequest,
@@ -20,6 +28,14 @@ export async function PATCH(
   const { id } = await params;
   const body: { status_hadir?: string; is_converted?: boolean } = await req.json();
 
+  if (body.status_hadir === undefined && body.is_converted === undefined) {
+    return NextResponse.json({ error: "Tidak ada perubahan." }, { status: 400 });
+  }
+
+  if (body.status_hadir !== undefined && !(body.status_hadir in STATUS_CUMULATIVE)) {
+    return NextResponse.json({ error: "Status tidak valid." }, { status: 400 });
+  }
+
   // Get current visitor with inviter's team_id
   const { rows } = await query<{
     id: string;
@@ -28,9 +44,10 @@ export async function PATCH(
     team_id: string | null;
     status_hadir: string;
     is_converted: boolean;
+    is_void: boolean;
   }>(`
     select v.id, v.season_id, v.inviter_id, m.team_id,
-           v.status_hadir::text as status_hadir, v.is_converted
+           v.status_hadir::text as status_hadir, v.is_converted, v.is_void
     from visitors v
     join members m on m.id = v.inviter_id
     where v.id = $1
@@ -40,47 +57,67 @@ export async function PATCH(
   const visitor = rows[0];
   if (!visitor) return NextResponse.json({ error: "Visitor tidak ditemukan." }, { status: 404 });
 
-  // Handle status_hadir update (only forward transitions)
-  if (body.status_hadir && body.status_hadir !== visitor.status_hadir) {
-    const oldIdx = STATUS_ORDER.indexOf(visitor.status_hadir);
-    const newIdx = STATUS_ORDER.indexOf(body.status_hadir);
-
-    if (newIdx < 0) {
-      return NextResponse.json({ error: "Status tidak valid." }, { status: 400 });
-    }
-
-    // Award points for each step crossed
-    for (let i = oldIdx + 1; i <= newIdx; i++) {
-      const pts = STATUS_POINTS[STATUS_ORDER[i]];
-      if (pts) {
-        await query(`
-          insert into score_ledger (season_id, member_id, team_id, kategori, points, sumber_ref, keterangan)
-          values ($1, $2, $3, 'visitor', $4, $5, $6)
-        `, [
-          visitor.season_id, visitor.inviter_id, visitor.team_id,
-          pts, visitor.id,
-          `Visitor ${STATUS_ORDER[i]}`
-        ]);
-      }
-    }
-
-    await query(
-      `update visitors set status_hadir = $1 where id = $2`,
-      [body.status_hadir, id]
-    );
+  if (visitor.is_void) {
+    return NextResponse.json({ error: "Visitor sudah di-void dan tidak bisa diubah." }, { status: 409 });
   }
 
-  // Handle conversion bonus
-  if (body.is_converted === true && !visitor.is_converted) {
+  // Status change in either direction — the point delta follows the new status.
+  if (body.status_hadir && body.status_hadir !== visitor.status_hadir) {
+    const from = visitor.status_hadir;
+    const to = body.status_hadir;
+
+    // Guarded update doubles as optimistic locking: a concurrent request that
+    // already moved the status loses here, so points are never awarded twice.
+    const updated = await query(
+      `update visitors set status_hadir = $1 where id = $2 and status_hadir = $3`,
+      [to, id, from]
+    );
+    if (updated.rowCount !== 1) {
+      return NextResponse.json(
+        { error: "Status visitor sudah berubah. Muat ulang halaman." },
+        { status: 409 }
+      );
+    }
+
+    const delta = STATUS_CUMULATIVE[to] - STATUS_CUMULATIVE[from];
+    if (delta !== 0) {
+      await query(`
+        insert into score_ledger (season_id, member_id, team_id, kategori, points, sumber_ref, keterangan)
+        values ($1, $2, $3, 'visitor', $4, $5, $6)
+      `, [
+        visitor.season_id, visitor.inviter_id, visitor.team_id,
+        delta, visitor.id,
+        `Status visitor: ${STATUS_LABEL[from]} → ${STATUS_LABEL[to]}`,
+      ]);
+    }
+  }
+
+  // Conversion bonus — reversible, since it can be flagged by mistake too.
+  if (body.is_converted !== undefined && body.is_converted !== visitor.is_converted) {
+    const to = body.is_converted;
+
+    const updated = await query(
+      `update visitors
+       set is_converted = $1,
+           tanggal_konversi = case when $1 then current_date else null end
+       where id = $2 and is_converted = $3`,
+      [to, id, visitor.is_converted]
+    );
+    if (updated.rowCount !== 1) {
+      return NextResponse.json(
+        { error: "Status konversi sudah berubah. Muat ulang halaman." },
+        { status: 409 }
+      );
+    }
+
     await query(`
       insert into score_ledger (season_id, member_id, team_id, kategori, points, sumber_ref, keterangan)
-      values ($1, $2, $3, 'visitor', 100, $4, 'Visitor konversi')
-    `, [visitor.season_id, visitor.inviter_id, visitor.team_id, visitor.id]);
-
-    await query(
-      `update visitors set is_converted = true, tanggal_konversi = current_date where id = $1`,
-      [id]
-    );
+      values ($1, $2, $3, 'visitor', $4, $5, $6)
+    `, [
+      visitor.season_id, visitor.inviter_id, visitor.team_id,
+      to ? CONVERSION_POINTS : -CONVERSION_POINTS, visitor.id,
+      to ? "Visitor konversi" : "Pembatalan konversi visitor",
+    ]);
   }
 
   return NextResponse.json({ ok: true });
