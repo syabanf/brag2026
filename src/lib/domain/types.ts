@@ -244,6 +244,14 @@ export type MemberBadge = {
   ikon?: string;
 };
 
+// ─── Master Data: Klasifikasi Bisnis ─────────────────────────────────────────
+
+export type ClassificationRow = {
+  id: string;
+  nama: string;
+  jumlah_member: number;  // how many members reference it; blocks deletion when > 0
+};
+
 // ─── Leaderboard Team History ────────────────────────────────────────────────
 
 // Attribution mirrors the leaderboard aggregation: a TYFCB entry belongs to the
