@@ -4,7 +4,7 @@ import { BarChart3, Check, Copy, Share2, Trophy, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { formatPoints } from "@/lib/utils";
-import { TeamHistoryDialog, type HistoryKind } from "./team-history-dialog";
+import { TeamHistoryDialog, type HistoryKind } from "@/components/team-history-dialog";
 
 type Tab = "overall" | "tyfcb" | "visitor";
 

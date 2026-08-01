@@ -19,15 +19,25 @@ const VISITOR_STATUS_LABEL: Record<string, string> = {
   hadir_penuh: "Hadir Penuh",
 };
 
+// `scope` picks the API surface: "member" needs a session, "public" does not.
+export type HistoryScope = "member" | "public";
+
+const HISTORY_ENDPOINT: Record<HistoryScope, (teamId: string) => string> = {
+  member: (id) => `/api/leaderboard/teams/${id}/history`,
+  public: (id) => `/api/public/leaderboard/teams/${id}/history`,
+};
+
 export function TeamHistoryDialog({
   teamId,
   teamName,
   kind,
+  scope = "member",
   onClose,
 }: {
   teamId: string;
   teamName: string;
   kind: HistoryKind;
+  scope?: HistoryScope;
   onClose: () => void;
 }) {
   const [data, setData]   = useState<TeamHistoryResponse | null>(null);
@@ -40,7 +50,7 @@ export function TeamHistoryDialog({
       setData(null);
       setError(null);
       try {
-        const res = await fetch(`/api/leaderboard/teams/${teamId}/history`, {
+        const res = await fetch(HISTORY_ENDPOINT[scope](teamId), {
           signal: controller.signal,
         });
         if (!res.ok) {
@@ -56,7 +66,7 @@ export function TeamHistoryDialog({
 
     load();
     return () => controller.abort();
-  }, [teamId]);
+  }, [teamId, scope]);
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {

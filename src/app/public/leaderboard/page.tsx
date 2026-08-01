@@ -1,6 +1,7 @@
 import { query } from "@/lib/db";
 import Image from "next/image";
 import { CopyLinkButton } from "./copy-link-button";
+import { TeamHistoryChips, TeamHistoryInline } from "./team-history-chips";
 
 type TeamRow = {
   team_id: string;
@@ -143,15 +144,14 @@ export default async function PublicLeaderboardPage() {
                     <p className={`text-xs font-bold ${s.labelCls}`}>pts</p>
                   </div>
                 </div>
-                <div className="mt-4 grid grid-cols-2 gap-2 text-center text-xs font-bold">
-                  <div className={`flex flex-col justify-center rounded-xl px-2 py-2 ${s.chip}`}>
-                    <span>TYFCB Rp {Number(team.nilai_tyfcb).toLocaleString("id-ID")}</span>
-                    <span className="opacity-70">{team.count_tyfcb}× transaksi</span>
-                  </div>
-                  <div className={`flex flex-col justify-center rounded-xl px-2 py-2 ${s.chip}`}>
-                    Visitor {team.count_visitor}
-                  </div>
-                </div>
+                <TeamHistoryChips
+                  teamId={team.team_id}
+                  teamName={team.nama_tim}
+                  nilaiTyfcb={Number(team.nilai_tyfcb)}
+                  countTyfcb={team.count_tyfcb}
+                  countVisitor={team.count_visitor}
+                  chipClassName={s.chip}
+                />
               </div>
             );
           })}
@@ -171,9 +171,13 @@ export default async function PublicLeaderboardPage() {
                   </span>
                   <div>
                     <p className="font-black text-gray-900">{team.nama_tim}</p>
-                    <p className="text-xs text-gray-400">
-                      TYFCB Rp {Number(team.nilai_tyfcb).toLocaleString("id-ID")} ({team.count_tyfcb}×) · Visitor {team.count_visitor}
-                    </p>
+                    <TeamHistoryInline
+                      teamId={team.team_id}
+                      teamName={team.nama_tim}
+                      nilaiTyfcb={Number(team.nilai_tyfcb)}
+                      countTyfcb={team.count_tyfcb}
+                      countVisitor={team.count_visitor}
+                    />
                   </div>
                 </div>
                 <p className="text-lg font-black text-gray-700">
