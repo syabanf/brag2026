@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, ChevronDown, ChevronUp, Pencil, Shield, ShieldCheck, ShieldOff, X } from "lucide-react";
+import { Check, ChevronDown, ChevronUp, Eye, EyeOff, Pencil, Shield, ShieldCheck, ShieldOff, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
@@ -47,17 +47,30 @@ function EditRow({
     klasifikasi_id: member.klasifikasi_id ?? "",
     color_status: member.color_status,
     is_active: member.is_active,
+    new_password: "",
   });
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
 
   async function save() {
+    if (form.new_password && form.new_password.length < 6) {
+      setError("Password baru minimal 6 karakter.");
+      return;
+    }
     setSaving(true);
-    await fetch(`/api/admin/members/${member.id}`, {
+    setError(null);
+    const res = await fetch(`/api/admin/members/${member.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(form),
     });
     setSaving(false);
+    if (!res.ok) {
+      const data = await res.json().catch(() => null);
+      setError(data?.error ?? "Gagal menyimpan perubahan.");
+      return;
+    }
     onSaved();
   }
 
@@ -74,6 +87,25 @@ function EditRow({
           value={form.email}
           onChange={(e) => setForm({ ...form, email: e.target.value })}
         />
+        <div className="relative mt-1">
+          <input
+            type={showPassword ? "text" : "password"}
+            autoComplete="new-password"
+            placeholder="Password baru (kosongkan jika tetap)"
+            className="w-full rounded-lg border border-brand-100 bg-white px-2 py-1 pr-8 text-xs"
+            value={form.new_password}
+            onChange={(e) => setForm({ ...form, new_password: e.target.value })}
+          />
+          <button
+            type="button"
+            onClick={() => setShowPassword((v) => !v)}
+            aria-label={showPassword ? "Sembunyikan password" : "Lihat password"}
+            className="absolute right-2 top-1/2 -translate-y-1/2 text-muted hover:text-ink"
+          >
+            {showPassword ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+          </button>
+        </div>
+        {error && <p className="mt-1 text-xs font-bold text-red-600">{error}</p>}
       </td>
       <td className="px-3 py-2">
         <div className="relative">

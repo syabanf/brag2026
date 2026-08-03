@@ -12,7 +12,13 @@ export async function PATCH(
 
   const { id } = await params;
   const body = await req.json();
-  const { full_name, email, team_id, klasifikasi_id, color_status, is_active, role } = body;
+  const { full_name, email, team_id, klasifikasi_id, color_status, is_active, role, new_password } = body;
+
+  if (new_password !== undefined && new_password !== "") {
+    if (typeof new_password !== "string" || new_password.length < 6) {
+      return Response.json({ error: "Password baru minimal 6 karakter." }, { status: 400 });
+    }
+  }
 
   // Role promotion/demotion — separate path, cannot demote yourself
   if (role !== undefined) {
@@ -49,6 +55,23 @@ export async function PATCH(
        from members m
        where m.id = $3 and u.id = m.user_id`,
       [full_name || null, email || null, id]
+    );
+  }
+
+  // Admin password reset — hashed with pgcrypto, sessions invalidated
+  if (new_password) {
+    await query(
+      `update app_users u
+       set password_hash = crypt($1, gen_salt('bf'))
+       from members m
+       where m.id = $2 and u.id = m.user_id`,
+      [new_password, id]
+    );
+    await query(
+      `delete from user_sessions s
+       using members m
+       where m.id = $1 and s.user_id = m.user_id and m.user_id <> $2`,
+      [id, user.id]
     );
   }
 
