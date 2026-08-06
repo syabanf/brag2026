@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth";
 import { query } from "@/lib/db";
-import { getBand } from "@/lib/scoring";
+import { computeTyfcbScore } from "@/lib/scoring";
+import { getPairPenaltyEnabled } from "@/lib/scoring-settings";
 
 export async function POST(req: NextRequest) {
   const { user } = await requireUser();
@@ -57,10 +58,12 @@ export async function POST(req: NextRequest) {
   );
   const pairOrdinal = Number(pairRows[0]?.count ?? 0) + 1;
 
-  const B = getBand(nilai);
-  const P = 1 / pairOrdinal;
   const M = 1.0;
-  const computedScore = Math.round(B * P * M);
+  const pairPenaltyEnabled = await getPairPenaltyEnabled(seller.season_id);
+  const computedScore = computeTyfcbScore(nilai, pairOrdinal, {
+    pairPenaltyEnabled,
+    eventMultiplier: M,
+  });
 
   // giver_id = buyer (receives the TYFCB points)
   // receiver_id = seller (who inputted the form)

@@ -18,3 +18,21 @@ export async function query<T extends QueryResultRow>(
 ) {
   return getDb().query<T>(text, values);
 }
+
+/** Runs fn inside a transaction, rolling back if it throws. */
+export async function withTransaction<T>(
+  fn: (q: <R extends QueryResultRow>(text: string, values?: unknown[]) => Promise<{ rows: R[] }>) => Promise<T>
+): Promise<T> {
+  const client = await getDb().connect();
+  try {
+    await client.query("begin");
+    const result = await fn((text, values = []) => client.query(text, values));
+    await client.query("commit");
+    return result;
+  } catch (error) {
+    await client.query("rollback");
+    throw error;
+  } finally {
+    client.release();
+  }
+}

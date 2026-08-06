@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireCaptain } from "@/lib/auth";
 import { query } from "@/lib/db";
 import { getCaptainContext, assertTeamMember } from "@/lib/captain";
-import { getBand } from "@/lib/scoring";
+import { computeTyfcbScore } from "@/lib/scoring";
+import { getPairPenaltyEnabled } from "@/lib/scoring-settings";
 
 export async function POST(req: NextRequest) {
   const { user } = await requireCaptain();
@@ -56,10 +57,12 @@ export async function POST(req: NextRequest) {
   );
   const pairOrdinal = Number(pairRows[0]?.count ?? 0) + 1;
 
-  const B = getBand(nilai);
-  const P = 1 / pairOrdinal;
   const M = 1.0;
-  const computedScore = Math.round(B * P * M);
+  const pairPenaltyEnabled = await getPairPenaltyEnabled(ctx.season_id);
+  const computedScore = computeTyfcbScore(nilai, pairOrdinal, {
+    pairPenaltyEnabled,
+    eventMultiplier: M,
+  });
 
   // giver_id = buyer (gets TYFCB points), receiver_id = seller (team member, submitted by captain)
   const { rows: inserted } = await query<{ id: string }>(`

@@ -1,6 +1,6 @@
 "use client";
 
-import { Banknote, Briefcase, KeyRound, LogOut, Shield, UserCheck, UserCircle, Users, Zap, UsersRound } from "lucide-react";
+import { Banknote, Briefcase, KeyRound, LogOut, Shield, SlidersHorizontal, UserCheck, UserCircle, Users, Zap, UsersRound } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { logout } from "@/app/login/actions";
@@ -12,6 +12,7 @@ const adminLinks = [
   { href: "/admin/teams",   label: "Kelola Team",         icon: UsersRound },
   { href: "/admin/classifications", label: "Klasifikasi Bisnis", icon: Briefcase },
   { href: "/admin/booster", label: "Kelola Booster",      icon: Zap },
+  { href: "/admin/scoring", label: "Aturan Skor",         icon: SlidersHorizontal },
 ];
 
 export function ProfileMenu({
