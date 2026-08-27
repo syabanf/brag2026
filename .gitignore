@@ -9,3 +9,6 @@ coverage
 brag_dev_backup.sql
 *.dump
 *.sql.gz
+
+# pm2 runtime config — berisi DATABASE_URL beserta password
+ecosystem.config.cjs
