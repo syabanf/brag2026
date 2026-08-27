@@ -1,11 +1,17 @@
 "use client";
 
-import { Gift, Loader2, UserPlus, X } from "lucide-react";
+import { Gift, Loader2, UserPlus, X, Zap } from "lucide-react";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import type { TeamHistoryResponse } from "@/lib/domain/types";
 
 export type HistoryKind = "tyfcb" | "visitor";
+
+/** "2.00" -> 2, so the badge reads "2x" and not "2.00x". Null when no booster applied. */
+function boosterMultiplier(multiplier: string | null): number | null {
+  const m = Number(multiplier);
+  return Number.isFinite(m) && m > 1 ? m : null;
+}
 
 const VISITOR_STATUS_STYLE: Record<string, string> = {
   terdaftar:   "bg-slate-50 text-slate-600",
@@ -152,6 +158,19 @@ export function TeamHistoryDialog({
                     <p className="truncate text-xs text-muted">
                       Penjual: {e.seller_name} · {e.tanggal}
                     </p>
+                    {boosterMultiplier(e.event_multiplier_applied) != null && (
+                      <span className="mt-1.5 inline-flex max-w-full items-center gap-1 rounded-full bg-orange-50 px-2 py-0.5 text-[11px] font-black text-orange-700 ring-1 ring-orange-200">
+                        <Zap className="h-3 w-3 shrink-0" />
+                        <span className="shrink-0">
+                          {boosterMultiplier(e.event_multiplier_applied)}x booster
+                        </span>
+                        {e.booster_judul && (
+                          <span className="truncate font-bold text-orange-600">
+                            · {e.booster_judul}
+                          </span>
+                        )}
+                      </span>
+                    )}
                   </div>
                   <div className="shrink-0 text-right">
                     <p className="font-black text-brand-600">

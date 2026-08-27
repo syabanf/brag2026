@@ -264,6 +264,10 @@ export type TeamTyfcbHistoryRow = {
   seller_name: string;  // receiver_id — counterparty who closed the business
   tanggal: string;
   computed_score: number | null;
+  /** Numeric string; > 1 means a booster multiplied this entry's score. */
+  event_multiplier_applied: string | null;
+  /** Null when no active booster still covers the entry — show the multiplier alone. */
+  booster_judul: string | null;
 };
 
 export type TeamVisitorHistoryRow = {

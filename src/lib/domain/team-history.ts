@@ -34,13 +34,30 @@ export async function getTeamHistory(
         u_buyer.full_name  as buyer_name,
         u_seller.full_name as seller_name,
         to_char(te.tanggal, 'DD Mon YYYY') as tanggal,
-        te.computed_score
+        te.computed_score,
+        te.event_multiplier_applied::text as event_multiplier_applied,
+        boost.judul as booster_judul
       from tyfcb_entries te
       join members m_buyer      on m_buyer.id     = te.giver_id
                                and m_buyer.season_id = $2
       join app_users u_buyer    on u_buyer.id     = m_buyer.user_id
       join members m_seller     on m_seller.id    = te.receiver_id
       join app_users u_seller   on u_seller.id    = m_seller.user_id
+      -- Entries record the multiplier but not which booster produced it, so the title
+      -- is re-derived with getBoosterMultiplier's rules. Null once an admin edits the
+      -- booster out of range, which the badge falls back on gracefully.
+      left join lateral (
+        select be.judul
+        from booster_events be
+        where be.season_id = te.season_id
+          and be.status = 'aktif'
+          and be.multiplier > 1
+          and te.tanggal between be.tanggal_mulai and be.tanggal_berakhir
+          and (be.band_min is null or te.nilai >= be.band_min)
+          and (be.band_max is null or te.nilai <  be.band_max)
+        order by be.multiplier desc, be.created_at desc
+        limit 1
+      ) boost on true
       where m_buyer.team_id = $1
         and te.status = 'verified'
       order by te.tanggal desc, te.created_at desc

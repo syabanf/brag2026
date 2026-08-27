@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2, Clock, XCircle } from "lucide-react";
+import { CheckCircle2, Clock, XCircle, Zap } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -12,9 +12,19 @@ export type TyfcbRow = {
   tanggal: string;
   status: "pending" | "verified" | "rejected";
   computed_score: number | null;
+  /** Numeric string from the DB; > 1 means a booster multiplied this entry's score. */
+  event_multiplier_applied: string | null;
+  /** Null when no active booster still covers the entry — show the multiplier alone. */
+  booster_judul: string | null;
 };
 
 type Filter = "all" | "pending" | "verified" | "rejected";
+
+/** "2.00" -> 2, so the badge reads "2x" and not "2.00x". Null when no booster applied. */
+function boosterMultiplier(entry: TyfcbRow): number | null {
+  const m = Number(entry.event_multiplier_applied);
+  return Number.isFinite(m) && m > 1 ? m : null;
+}
 
 const STATUS_STYLE = {
   pending:  "bg-yellow-50 text-yellow-700",
@@ -104,6 +114,15 @@ export function TyfcbAdminClient({ initial }: { initial: TyfcbRow[] }) {
                       <span className="ml-2 font-bold text-brand-700">+{e.computed_score} pts</span>
                     )}
                   </p>
+                  {boosterMultiplier(e) != null && (
+                    <span className="mt-2 inline-flex max-w-full items-center gap-1.5 rounded-full bg-orange-50 px-2.5 py-1 text-xs font-black text-orange-700 ring-1 ring-orange-200">
+                      <Zap className="h-3.5 w-3.5 shrink-0" />
+                      <span className="shrink-0">{boosterMultiplier(e)}x booster</span>
+                      {e.booster_judul && (
+                        <span className="truncate font-bold text-orange-600">· {e.booster_judul}</span>
+                      )}
+                    </span>
+                  )}
                 </div>
 
                 {/* Action buttons */}
