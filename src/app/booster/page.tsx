@@ -3,6 +3,7 @@ import { CalendarDays, ChevronRight, Zap } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import { requireUser } from "@/lib/auth";
 import { query } from "@/lib/db";
+import { boosterBandLabel, boosterEffectLabel } from "@/lib/booster";
 
 type BoosterState = "running" | "coming_soon" | "inactive";
 
@@ -13,6 +14,9 @@ type BoosterRow = {
   tanggal_mulai: string;
   tanggal_berakhir: string;
   poin: number;
+  multiplier: number;
+  band_min: number | null;
+  band_max: number | null;
   state: BoosterState;
 };
 
@@ -25,6 +29,9 @@ async function getAllBoosters(): Promise<BoosterRow[]> {
       to_char(be.tanggal_mulai,    'DD Mon YYYY') as tanggal_mulai,
       to_char(be.tanggal_berakhir, 'DD Mon YYYY') as tanggal_berakhir,
       be.poin,
+      be.multiplier::float8 as multiplier,
+      be.band_min::float8   as band_min,
+      be.band_max::float8   as band_max,
       case
         when be.status = 'aktif' and current_date between be.tanggal_mulai and be.tanggal_berakhir
           then 'running'
@@ -89,11 +96,20 @@ function BoosterCard({ b }: { b: BoosterRow }) {
           {b.judul}
         </p>
 
-        <span className={`mt-1 inline-block rounded-full px-2.5 py-0.5 text-xs font-black ${
-          inactive ? "bg-gray-200 text-gray-400" : "bg-white/20 text-white"
-        }`}>
-          +{b.poin} pts
-        </span>
+        <div className="mt-1 flex flex-wrap items-center gap-1.5">
+          <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-black ${
+            inactive ? "bg-gray-200 text-gray-400" : "bg-white/20 text-white"
+          }`}>
+            {boosterEffectLabel(b)}
+          </span>
+          {b.multiplier > 1 && (
+            <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-black ${
+              inactive ? "bg-gray-200 text-gray-400" : "bg-white/20 text-white"
+            }`}>
+              TYFCB {boosterBandLabel(b)}
+            </span>
+          )}
+        </div>
 
         {b.deskripsi && (
           <p className={`mt-1.5 line-clamp-2 text-sm ${inactive ? "text-gray-400" : "text-white/80"}`}>

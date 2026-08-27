@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { BOOSTER_BAND_PRESETS, boosterScorePreview } from "@/lib/booster";
 
 const today = new Date().toISOString().split("T")[0];
 
@@ -15,9 +16,13 @@ export function NewBoosterForm() {
     deskripsi: "",
     tanggal_mulai: today,
     tanggal_berakhir: today,
-    poin: "",
+    poin: "0",
+    multiplier: "1",
+    bandIndex: "0",
   });
   const [saving, setSaving] = useState(false);
+  const band = BOOSTER_BAND_PRESETS[Number(form.bandIndex)];
+  const preview = boosterScorePreview(Number(form.multiplier), band);
   const [error, setError] = useState("");
 
   async function handleSubmit(e: React.FormEvent) {
@@ -27,7 +32,13 @@ export function NewBoosterForm() {
     const res = await fetch("/api/admin/booster", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...form, poin: Number(form.poin) }),
+      body: JSON.stringify({
+        ...form,
+        poin: Number(form.poin),
+        multiplier: Number(form.multiplier),
+        band_min: band.band_min,
+        band_max: band.band_max,
+      }),
     });
     setSaving(false);
     if (res.ok) {
@@ -107,10 +118,50 @@ export function NewBoosterForm() {
           </label>
         </div>
 
+        <div className="space-y-5 rounded-2xl border border-brand-100 bg-brand-50/40 p-4">
+          <p className="text-sm font-black text-ink">Pengali Poin TYFCB</p>
+
+          <div className="grid grid-cols-2 gap-4">
+            <label className="block">
+              <span className="mb-2 block text-sm font-black text-ink">Multiplier</span>
+              <div className="relative">
+                <input
+                  type="number"
+                  min="1"
+                  max="10"
+                  step="0.5"
+                  className="w-full rounded-2xl border border-brand-100 bg-white px-4 py-3 pr-10 outline-none focus:ring-2 focus:ring-brand-500"
+                  value={form.multiplier}
+                  onChange={e => setForm({ ...form, multiplier: e.target.value })}
+                />
+                <span className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-sm font-bold text-muted">x</span>
+              </div>
+            </label>
+            <label className="block">
+              <span className="mb-2 block text-sm font-black text-ink">Berlaku untuk band</span>
+              <select
+                className="w-full rounded-2xl border border-brand-100 bg-white px-4 py-3 outline-none focus:ring-2 focus:ring-brand-500"
+                value={form.bandIndex}
+                onChange={e => setForm({ ...form, bandIndex: e.target.value })}
+              >
+                {BOOSTER_BAND_PRESETS.map((b, i) => (
+                  <option key={b.label} value={i}>{b.label}</option>
+                ))}
+              </select>
+            </label>
+          </div>
+
+          <p className="text-xs font-bold text-muted">
+            {Number(form.multiplier) > 1
+              ? preview
+                ? `TYFCB di band ini otomatis bernilai ${preview} selama periode booster.`
+                : "Semua band TYFCB dikalikan otomatis selama periode booster."
+              : "Multiplier 1x berarti booster ini hanya pengumuman — poin tidak dikalikan otomatis."}
+          </p>
+        </div>
+
         <label className="block">
-          <span className="mb-2 block text-sm font-black text-ink">
-            Point Booster <span className="text-brand-600">*</span>
-          </span>
+          <span className="mb-2 block text-sm font-black text-ink">Point Bonus Flat</span>
           <div className="relative">
             <input
               type="number"
@@ -119,10 +170,12 @@ export function NewBoosterForm() {
               placeholder="0"
               value={form.poin}
               onChange={e => setForm({ ...form, poin: e.target.value })}
-              required
             />
             <span className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-sm font-bold text-muted">pts</span>
           </div>
+          <span className="mt-2 block text-xs font-bold text-muted">
+            Hanya label pengumuman — poin ini tidak dihitung otomatis, admin memberikannya manual.
+          </span>
         </label>
 
         {error && (

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { requireUser } from "@/lib/auth";
 import { query } from "@/lib/db";
 import { formatPoints } from "@/lib/utils";
+import { boosterEffectLabel } from "@/lib/booster";
 
 // ─── DB query helpers ───────────────────────────────────────────────────────
 
@@ -100,10 +101,16 @@ async function getActiveBoosters(seasonId: string) {
     judul: string;
     deskripsi: string | null;
     poin: number;
+    multiplier: number;
+    band_min: number | null;
+    band_max: number | null;
     tanggal_mulai: string;
     tanggal_berakhir: string;
   }>(`
     select id, judul, deskripsi, poin,
+      multiplier::float8 as multiplier,
+      band_min::float8   as band_min,
+      band_max::float8   as band_max,
            to_char(tanggal_mulai,    'DD Mon YYYY') as tanggal_mulai,
            to_char(tanggal_berakhir, 'DD Mon YYYY') as tanggal_berakhir
     from booster_events
@@ -444,7 +451,7 @@ export default async function MemberDashboardPage() {
                   </span>
                   <div className="min-w-0 flex-1">
                     <p className="text-[0.68rem] font-bold uppercase tracking-[0.14em] text-white/70">
-                      +{Number(booster.poin)} pts · {booster.tanggal_mulai} — {booster.tanggal_berakhir}
+                      {boosterEffectLabel(booster)} · {booster.tanggal_mulai} — {booster.tanggal_berakhir}
                     </p>
                     <p className="mt-0.5 truncate text-lg font-black">{booster.judul}</p>
                     {booster.deskripsi && (

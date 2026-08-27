@@ -12,6 +12,9 @@ async function getBoosters(): Promise<BoosterRow[]> {
       to_char(be.tanggal_mulai,    'YYYY-MM-DD') as tanggal_mulai,
       to_char(be.tanggal_berakhir, 'YYYY-MM-DD') as tanggal_berakhir,
       be.poin,
+      be.multiplier::float8 as multiplier,
+      be.band_min::float8   as band_min,
+      be.band_max::float8   as band_max,
       be.status
     from booster_events be
     join event_seasons es on es.id = be.season_id

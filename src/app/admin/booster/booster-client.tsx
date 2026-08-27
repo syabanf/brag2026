@@ -5,6 +5,15 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { BOOSTER_BAND_PRESETS, boosterBandLabel, boosterEffectLabel } from "@/lib/booster";
+
+/** Maps a stored band range back to its preset slot so the edit modal opens on the right option. */
+function bandPresetIndex(booster: { band_min: number | null; band_max: number | null }): number {
+  const i = BOOSTER_BAND_PRESETS.findIndex(
+    (b) => b.band_min === booster.band_min && b.band_max === booster.band_max
+  );
+  return i === -1 ? 0 : i;
+}
 
 export type BoosterRow = {
   id: string;
@@ -13,6 +22,9 @@ export type BoosterRow = {
   tanggal_mulai: string;
   tanggal_berakhir: string;
   poin: number;
+  multiplier: number;
+  band_min: number | null;
+  band_max: number | null;
   status: "aktif" | "nonaktif";
 };
 
@@ -31,9 +43,12 @@ function EditModal({
     tanggal_mulai: booster.tanggal_mulai,
     tanggal_berakhir: booster.tanggal_berakhir,
     poin: String(booster.poin),
+    multiplier: String(booster.multiplier ?? 1),
+    bandIndex: String(bandPresetIndex(booster)),
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const band = BOOSTER_BAND_PRESETS[Number(form.bandIndex)];
 
   async function handleSave() {
     setSaving(true);
@@ -41,7 +56,13 @@ function EditModal({
     const res = await fetch(`/api/admin/booster/${booster.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...form, poin: Number(form.poin) }),
+      body: JSON.stringify({
+        ...form,
+        poin: Number(form.poin),
+        multiplier: Number(form.multiplier),
+        band_min: band.band_min,
+        band_max: band.band_max,
+      }),
     });
     setSaving(false);
     if (res.ok) { onSaved(); onClose(); }
@@ -75,8 +96,24 @@ function EditModal({
                 value={form.tanggal_berakhir} onChange={e => setForm({ ...form, tanggal_berakhir: e.target.value })} />
             </label>
           </div>
+          <div className="grid grid-cols-2 gap-3">
+            <label className="block">
+              <span className="mb-1 block text-sm font-black text-ink">Multiplier</span>
+              <input type="number" min="1" max="10" step="0.5" className="w-full rounded-xl border border-brand-100 px-3 py-2.5 outline-none focus:ring-2 focus:ring-brand-500"
+                value={form.multiplier} onChange={e => setForm({ ...form, multiplier: e.target.value })} />
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-sm font-black text-ink">Band</span>
+              <select className="w-full rounded-xl border border-brand-100 px-3 py-2.5 outline-none focus:ring-2 focus:ring-brand-500"
+                value={form.bandIndex} onChange={e => setForm({ ...form, bandIndex: e.target.value })}>
+                {BOOSTER_BAND_PRESETS.map((b, i) => (
+                  <option key={b.label} value={i}>{b.label}</option>
+                ))}
+              </select>
+            </label>
+          </div>
           <label className="block">
-            <span className="mb-1 block text-sm font-black text-ink">Point Booster <span className="text-brand-600">*</span></span>
+            <span className="mb-1 block text-sm font-black text-ink">Point Bonus Flat</span>
             <input type="number" min="0" className="w-full rounded-xl border border-brand-100 px-3 py-2.5 outline-none focus:ring-2 focus:ring-brand-500"
               value={form.poin} onChange={e => setForm({ ...form, poin: e.target.value })} />
           </label>
@@ -168,8 +205,13 @@ export function BoosterClient({ initial }: { initial: BoosterRow[] }) {
                         {isActive ? "Aktif" : "Nonaktif"}
                       </span>
                       <span className="rounded-full bg-brand-50 px-2.5 py-0.5 text-xs font-black text-brand-700">
-                        +{b.poin} pts
+                        {boosterEffectLabel(b)}
                       </span>
+                      {b.multiplier > 1 && (
+                        <span className="rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-black text-amber-700">
+                          {boosterBandLabel(b)}
+                        </span>
+                      )}
                     </div>
                     {b.deskripsi && (
                       <p className="mt-1 text-sm text-muted">{b.deskripsi}</p>

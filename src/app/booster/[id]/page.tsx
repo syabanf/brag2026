@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
 import { requireUser } from "@/lib/auth";
 import { query } from "@/lib/db";
+import { boosterBandLabel, boosterEffectLabel } from "@/lib/booster";
 
 async function getBooster(id: string) {
   const { rows } = await query<{
@@ -11,12 +12,18 @@ async function getBooster(id: string) {
     judul: string;
     deskripsi: string | null;
     poin: number;
+    multiplier: number;
+    band_min: number | null;
+    band_max: number | null;
     tanggal_mulai: string;
     tanggal_berakhir: string;
     is_running: boolean;
   }>(`
     select
       id, judul, deskripsi, poin,
+      multiplier::float8 as multiplier,
+      band_min::float8   as band_min,
+      band_max::float8   as band_max,
       to_char(tanggal_mulai,    'DD Mon YYYY') as tanggal_mulai,
       to_char(tanggal_berakhir, 'DD Mon YYYY') as tanggal_berakhir,
       (current_date between tanggal_mulai and tanggal_berakhir) as is_running
@@ -64,7 +71,12 @@ export default async function BoosterDetailPage({
             </div>
           </div>
           <h1 className="text-3xl font-black leading-tight">{booster.judul}</h1>
-          <p className="mt-2 text-4xl font-black text-white/90">+{Number(booster.poin)} pts</p>
+          <p className="mt-2 text-4xl font-black text-white/90">{boosterEffectLabel(booster)}</p>
+          {booster.multiplier > 1 && (
+            <p className="mt-1 text-sm font-bold text-white/80">
+              Untuk TYFCB {boosterBandLabel(booster)}
+            </p>
+          )}
           <div className="mt-4 flex items-center gap-2 text-sm text-white/70">
             <CalendarDays className="h-4 w-4" />
             {booster.tanggal_mulai} — {booster.tanggal_berakhir}
@@ -82,10 +94,18 @@ export default async function BoosterDetailPage({
         {/* CTA */}
         <div className="mt-4 rounded-2xl bg-brand-50 p-4 text-sm text-muted">
           <p className="font-bold text-ink">Cara mendapatkan poin booster ini:</p>
-          <p className="mt-1">
-            Lakukan aktivitas TYFCB atau Visitor selama periode booster aktif.
-            Poin akan dikalkulasikan oleh Grow Coordinator setelah diverifikasi.
-          </p>
+          {booster.multiplier > 1 ? (
+            <p className="mt-1">
+              Catat TYFCB {boosterBandLabel(booster)} dengan tanggal transaksi di dalam periode booster.
+              Poinnya otomatis dikalikan {boosterEffectLabel(booster)} saat kamu submit, dan masuk
+              leaderboard setelah diverifikasi Grow Coordinator.
+            </p>
+          ) : (
+            <p className="mt-1">
+              Lakukan aktivitas TYFCB atau Visitor selama periode booster aktif.
+              Poin akan dikalkulasikan oleh Grow Coordinator setelah diverifikasi.
+            </p>
+          )}
         </div>
       </div>
     </AppShell>

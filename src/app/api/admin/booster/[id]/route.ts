@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { requireUser } from "@/lib/auth";
 import { query } from "@/lib/db";
+import { parseBoosterScoring } from "@/lib/booster-input";
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { user } = await requireUser();
@@ -10,7 +11,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   const { id } = await params;
   const body = await req.json();
-  const { judul, deskripsi, tanggal_mulai, tanggal_berakhir, poin, status } = body;
+  const { judul, deskripsi, tanggal_mulai, tanggal_berakhir, poin, status, multiplier, band_min, band_max } = body;
 
   if (status !== undefined) {
     // Toggle status only
@@ -25,11 +26,18 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     return Response.json({ error: "Judul, tanggal, dan poin wajib diisi." }, { status: 400 });
   }
 
+  const parsed = parseBoosterScoring({ multiplier, band_min, band_max });
+  if ("error" in parsed) return Response.json({ error: parsed.error }, { status: 400 });
+
   await query(`
     update booster_events
-    set judul = $1, deskripsi = $2, tanggal_mulai = $3, tanggal_berakhir = $4, poin = $5
-    where id = $6
-  `, [judul.trim(), deskripsi?.trim() ?? null, tanggal_mulai, tanggal_berakhir, Number(poin), id]);
+    set judul = $1, deskripsi = $2, tanggal_mulai = $3, tanggal_berakhir = $4, poin = $5,
+        multiplier = $6, band_min = $7, band_max = $8
+    where id = $9
+  `, [
+    judul.trim(), deskripsi?.trim() ?? null, tanggal_mulai, tanggal_berakhir, Number(poin),
+    parsed.multiplier, parsed.band_min, parsed.band_max, id,
+  ]);
 
   return Response.json({ ok: true });
 }

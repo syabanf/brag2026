@@ -43,6 +43,51 @@ export async function getPairPenaltyEnabled(seasonId: string): Promise<boolean> 
   return rows[0]?.pair_penalty_enabled ?? true;
 }
 
+export type BoosterMultiplier = {
+  multiplier: number;
+  /** Null when no booster applies — the caller records M = 1.0. */
+  booster_id: string | null;
+  judul: string | null;
+};
+
+/**
+ * The M factor for one TYFCB entry (spec §4.1 Step 3).
+ *
+ * A booster applies when it is aktif, the transaction date falls inside its range, and
+ * the transaction value falls inside its band (band_min inclusive, band_max exclusive —
+ * same convention as TYFCB_BANDS; a NULL bound means unbounded on that side).
+ *
+ * Overlapping boosters resolve to the single highest multiplier. They are never
+ * multiplied together, so stacked boosters cannot inflate a score without an admin
+ * explicitly creating one large multiplier.
+ */
+export async function getBoosterMultiplier(
+  seasonId: string,
+  tanggal: string,
+  nilai: number
+): Promise<BoosterMultiplier> {
+  const { rows } = await query<{ id: string; judul: string; multiplier: string }>(`
+    select id, judul, multiplier
+    from booster_events
+    where season_id = $1
+      and status = 'aktif'
+      and $2::date between tanggal_mulai and tanggal_berakhir
+      and (band_min is null or $3::bigint >= band_min)
+      and (band_max is null or $3::bigint <  band_max)
+    order by multiplier desc, created_at desc
+    limit 1
+  `, [seasonId, tanggal, nilai]);
+
+  const top = rows[0];
+  const multiplier = Number(top?.multiplier ?? 1);
+
+  if (!top || !Number.isFinite(multiplier) || multiplier <= 1) {
+    return { multiplier: 1, booster_id: null, judul: null };
+  }
+
+  return { multiplier, booster_id: top.id, judul: top.judul };
+}
+
 type ScorableEntry = {
   id: string;
   member_id: string;
