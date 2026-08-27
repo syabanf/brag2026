@@ -1,9 +1,9 @@
 "use client";
 
 import { BarChart3, Check, Copy, Share2, Trophy, X } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { createPortal } from "react-dom";
-import { formatPoints } from "@/lib/utils";
+import { formatCurrencyCompact, formatPoints } from "@/lib/utils";
 import { TeamHistoryDialog, type HistoryKind } from "@/components/team-history-dialog";
 
 type Tab = "overall" | "tyfcb" | "visitor";
@@ -99,54 +99,59 @@ export function LeaderboardClient({
             </div>
             {tab === "overall" && <ShareTeamButton />}
           </div>
-          <div className="space-y-3">
+          <div className="space-y-2.5">
             {sortedTeams.map((team, index) => {
-              const cardCls =
-                index === 0 ? "bg-gradient-to-br from-yellow-300 via-amber-400 to-orange-400 border-yellow-200 shadow-lift" :
-                index === 1 ? "bg-gradient-to-br from-slate-300 via-gray-200 to-slate-400 border-slate-200 shadow-lift" :
-                index === 2 ? "bg-gradient-to-br from-amber-700 via-amber-600 to-orange-700 border-amber-500 shadow-lift" :
-                "border border-brand-100 bg-white";
-              const nameCls  = index === 0 ? "text-yellow-900" : index === 1 ? "text-slate-800" : index === 2 ? "text-white" : "text-ink";
-              const scoreCls = index === 0 ? "text-yellow-900" : index === 1 ? "text-slate-800" : index === 2 ? "text-white" : "text-brand-600";
-              const chipCls  = index === 0 ? "bg-white/30 text-yellow-900" : index === 1 ? "bg-white/30 text-slate-800" : index === 2 ? "bg-white/20 text-white/90" : "bg-brand-50 text-muted";
-              const rankCls  = index === 0 ? "bg-white/40 text-yellow-900" : index === 1 ? "bg-white/40 text-slate-800" : index === 2 ? "bg-white/25 text-white" : "bg-brand-600 text-white";
+              // Top three get a restrained metal accent — a tinted rank badge
+              // and hairline edge — instead of a full gradient card, so the
+              // numbers stay the loudest thing on the row.
+              const accent =
+                index === 0 ? { edge: "border-amber-300", rank: "bg-amber-400 text-amber-950", score: "text-amber-700" } :
+                index === 1 ? { edge: "border-slate-300", rank: "bg-slate-300 text-slate-800", score: "text-slate-700" } :
+                index === 2 ? { edge: "border-orange-300", rank: "bg-orange-300 text-orange-950", score: "text-orange-800" } :
+                { edge: "", rank: "bg-brand-50 text-brand-700", score: "text-brand-600" };
               return (
-              <div className={`rounded-2xl p-4 ${cardCls}`} key={team.team_id}>
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex min-w-0 items-center gap-3">
-                    <span className={`grid h-12 w-12 shrink-0 place-items-center rounded-full text-lg font-black ${rankCls}`}>
+              <div
+                className={`card p-3 ${accent.edge ? `border-l-[3px] ${accent.edge}` : ""}`}
+                key={team.team_id}
+              >
+                <div className="flex items-center justify-between gap-2.5">
+                  <div className="flex min-w-0 items-center gap-2.5">
+                    <span className={`num grid h-9 w-9 shrink-0 place-items-center rounded-xl text-sm font-black ${accent.rank}`}>
                       {index + 1}
                     </span>
-                    <p className={`truncate text-lg font-black ${nameCls}`}>{team.nama_tim}</p>
+                    <p className="truncate text-base font-black text-ink">{team.nama_tim}</p>
                   </div>
                   <div className="shrink-0 text-right">
-                    <p className={`text-xl font-black ${scoreCls}`}>
+                    <p className={`num text-lg font-black leading-none ${accent.score}`}>
                       {formatTeamTabScore(team, tab)}
                     </p>
                     {formatTeamTabSubScore(team, tab) && (
-                      <p className={`text-xs font-bold opacity-70 ${scoreCls}`}>
+                      <p className="num mt-0.5 text-[0.68rem] font-bold text-muted">
                         {formatTeamTabSubScore(team, tab)}
                       </p>
                     )}
                   </div>
                 </div>
-                <div className="mt-4 grid grid-cols-2 gap-2 text-center text-xs font-bold">
+
+                <div className="mt-2.5 grid grid-cols-2 gap-2 text-xs font-bold">
                   <button
                     type="button"
                     onClick={() => setHistory({ team, kind: "tyfcb" })}
                     aria-label={`Lihat riwayat TYFCB ${team.nama_tim}`}
-                    className={`flex flex-col justify-center rounded-xl p-2 transition hover:brightness-105 active:scale-[0.97] ${chipCls}`}
+                    title={`Rp ${Number(team.nilai_tyfcb).toLocaleString("id-ID")}`}
+                    className="flex min-h-11 flex-col justify-center rounded-xl bg-brand-50/70 px-2.5 py-1.5 text-left transition hover:bg-brand-50 active:scale-[0.98]"
                   >
-                    <span>TYFCB Rp {Number(team.nilai_tyfcb).toLocaleString("id-ID")}</span>
-                    <span className="opacity-70">{team.count_tyfcb}× transaksi</span>
+                    <span className="num text-ink">{formatCurrencyCompact(Number(team.nilai_tyfcb))}</span>
+                    <span className="num text-[0.65rem] font-semibold text-muted">{team.count_tyfcb}× transaksi TYFCB</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => setHistory({ team, kind: "visitor" })}
                     aria-label={`Lihat riwayat Visitor ${team.nama_tim}`}
-                    className={`flex flex-col justify-center rounded-xl p-2 transition hover:brightness-105 active:scale-[0.97] ${chipCls}`}
+                    className="flex min-h-11 flex-col justify-center rounded-xl bg-brand-50/70 px-2.5 py-1.5 text-left transition hover:bg-brand-50 active:scale-[0.98]"
                   >
-                    Visitor {team.count_visitor}
+                    <span className="num text-ink">{team.count_visitor} visitor</span>
+                    <span className="text-[0.65rem] font-semibold text-muted">Tamu diundang</span>
                   </button>
                 </div>
               </div>
@@ -202,58 +207,62 @@ export function LeaderboardClient({
 }
 
 function ShareTeamButton() {
-  const [open, setOpen]     = useState(false);
+  const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [mounted, setMounted] = useState(false);
-  const urlRef = useRef("");
+  // Resolved on click rather than in an effect: the modal only ever exists
+  // after a user gesture, so window is guaranteed to be available by then.
+  const [url, setUrl] = useState("");
 
-  useEffect(() => {
-    setMounted(true);
-    urlRef.current = `${window.location.origin}/public/leaderboard`;
-  }, []);
+  function openDialog() {
+    setUrl(`${window.location.origin}/public/leaderboard`);
+    setOpen(true);
+  }
 
   async function copyLink() {
-    await navigator.clipboard.writeText(urlRef.current);
+    await navigator.clipboard.writeText(url);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   }
 
-  const modal = mounted && open ? createPortal(
+  const modal = open ? createPortal(
     <div
-      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 px-4 backdrop-blur-sm"
+      className="fixed inset-0 z-[9999] flex items-center justify-center bg-ink/40 px-4 backdrop-blur-sm"
       onClick={(e) => { if (e.target === e.currentTarget) setOpen(false); }}
     >
-      <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl">
-        <div className="mb-4 flex items-center justify-between">
-          <h3 className="text-lg font-black text-ink">Bagikan Leaderboard</h3>
+      <div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-2xl">
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <h3 className="text-base font-black text-ink">Bagikan Leaderboard</h3>
           <button
+            type="button"
+            aria-label="Tutup"
             onClick={() => setOpen(false)}
-            className="grid h-8 w-8 place-items-center rounded-full text-muted hover:bg-brand-50 hover:text-ink"
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-muted transition hover:bg-brand-50 hover:text-ink"
           >
             <X className="h-4 w-4" />
           </button>
         </div>
 
-        <p className="mb-3 text-sm text-muted">
-          Siapapun bisa melihat posisi team tanpa perlu login.
+        <p className="mb-3 text-sm leading-relaxed text-muted">
+          Siapa pun bisa melihat posisi team tanpa perlu login.
         </p>
 
         <div className="flex items-center gap-2 rounded-xl border border-brand-100 bg-brand-50 px-3 py-2.5">
-          <p className="min-w-0 flex-1 truncate text-sm font-semibold text-ink">{urlRef.current}</p>
+          <p className="min-w-0 flex-1 truncate text-sm font-semibold text-ink">{url}</p>
         </div>
 
         <button
+          type="button"
           onClick={copyLink}
-          className={`mt-3 flex w-full items-center justify-center gap-2 rounded-xl py-3 text-sm font-black transition active:scale-[0.98] ${
+          className={`mt-3 flex min-h-12 w-full items-center justify-center gap-2 rounded-xl text-sm font-black transition active:scale-[0.98] ${
             copied
-              ? "bg-green-600 text-white"
+              ? "bg-emerald-600 text-white"
               : "bg-brand-600 text-white hover:bg-brand-700"
           }`}
         >
           {copied ? (
-            <><Check className="h-4 w-4" />Link Tersalin!</>
+            <><Check className="h-4 w-4" />Link tersalin</>
           ) : (
-            <><Copy className="h-4 w-4" />Copy Link</>
+            <><Copy className="h-4 w-4" />Copy link</>
           )}
         </button>
       </div>
@@ -264,8 +273,9 @@ function ShareTeamButton() {
   return (
     <>
       <button
-        onClick={() => setOpen(true)}
-        className="flex items-center gap-1.5 rounded-full border border-brand-200 bg-white px-3 py-1.5 text-xs font-bold text-brand-600 transition hover:bg-brand-50 active:scale-95"
+        type="button"
+        onClick={openDialog}
+        className="flex shrink-0 items-center gap-1.5 rounded-full border border-brand-100 bg-white px-3 py-2 text-xs font-bold text-brand-600 transition hover:bg-brand-50 active:scale-95"
       >
         <Share2 className="h-3.5 w-3.5" />
         Bagikan

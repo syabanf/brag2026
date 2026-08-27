@@ -45,7 +45,7 @@ async function getTeamStandings(): Promise<TeamRow[]> {
     left join tyfcb_by_team tt    on tt.team_id = t.id
     left join visitor_by_team vt  on vt.team_id = t.id
     group by t.id, t.nama_tim, tt.nilai_tyfcb, tt.count_tyfcb, vt.count_visitor
-    order by score_overall desc, substring(t.nama_tim, 6)::int
+    order by score_overall desc, substring(t.nama_tim, 5)::int
   `, []);
   return rows;
 }

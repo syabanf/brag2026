@@ -76,105 +76,122 @@ function EditRow({
 
   return (
     <tr className="bg-brand-50">
-      <td className="px-3 py-2">
-        <input
-          className="w-full rounded-lg border border-brand-200 bg-white px-2 py-1 text-sm font-bold"
-          value={form.full_name}
-          onChange={(e) => setForm({ ...form, full_name: e.target.value })}
-        />
-        <input
-          className="mt-1 w-full rounded-lg border border-brand-100 bg-white px-2 py-1 text-xs text-muted"
-          value={form.email}
-          onChange={(e) => setForm({ ...form, email: e.target.value })}
-        />
-        <div className="relative mt-1">
-          <input
-            type={showPassword ? "text" : "password"}
-            autoComplete="new-password"
-            placeholder="Password baru (kosongkan jika tetap)"
-            className="w-full rounded-lg border border-brand-100 bg-white px-2 py-1 pr-8 text-xs"
-            value={form.new_password}
-            onChange={(e) => setForm({ ...form, new_password: e.target.value })}
-          />
-          <button
-            type="button"
-            onClick={() => setShowPassword((v) => !v)}
-            aria-label={showPassword ? "Sembunyikan password" : "Lihat password"}
-            className="absolute right-2 top-1/2 -translate-y-1/2 text-muted hover:text-ink"
-          >
-            {showPassword ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
-          </button>
-        </div>
-        {error && <p className="mt-1 text-xs font-bold text-red-600">{error}</p>}
-      </td>
-      <td className="px-3 py-2">
-        <div className="relative">
-          <select
-            className="w-full appearance-none rounded-lg border border-brand-200 bg-white px-2 py-1 text-sm"
-            value={form.team_id}
-            onChange={(e) => setForm({ ...form, team_id: e.target.value })}
-          >
-            <option value="">— Tanpa tim</option>
-            {teams.map((t) => (
-              <option key={t.id} value={t.id}>{t.nama_tim}</option>
-            ))}
-          </select>
-          <ChevronDown className="pointer-events-none absolute right-2 top-1.5 h-3.5 w-3.5 text-muted" />
-        </div>
-      </td>
-      <td className="px-3 py-2">
-        <div className="relative">
-          <select
-            className="w-full appearance-none rounded-lg border border-brand-200 bg-white px-2 py-1 text-sm"
-            value={form.klasifikasi_id}
-            onChange={(e) => setForm({ ...form, klasifikasi_id: e.target.value })}
-          >
-            <option value="">— Pilih</option>
-            {klasifikasi.map((k) => (
-              <option key={k.id} value={k.id}>{k.nama}</option>
-            ))}
-          </select>
-          <ChevronDown className="pointer-events-none absolute right-2 top-1.5 h-3.5 w-3.5 text-muted" />
-        </div>
-      </td>
-      <td className="px-3 py-2">
-        <div className="relative">
-          <select
-            className="w-full appearance-none rounded-lg border border-brand-200 bg-white px-2 py-1 text-sm"
-            value={form.color_status}
-            onChange={(e) => setForm({ ...form, color_status: e.target.value })}
-          >
-            <option value="merah">Merah</option>
-            <option value="kuning">Kuning</option>
-            <option value="hijau">Hijau</option>
-          </select>
-          <ChevronDown className="pointer-events-none absolute right-2 top-1.5 h-3.5 w-3.5 text-muted" />
-        </div>
-      </td>
-      <td className="px-3 py-2 text-center">
-        <input
-          type="checkbox"
-          checked={form.is_active}
-          onChange={(e) => setForm({ ...form, is_active: e.target.checked })}
-          className="h-4 w-4 accent-brand-600"
-        />
-      </td>
-      <td className="px-3 py-2" colSpan={2}>
-        <div className="flex gap-1.5">
-          <button
-            onClick={save}
-            disabled={saving}
-            className="flex items-center gap-1 rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-brand-700 disabled:opacity-50"
-          >
-            <Check className="h-3.5 w-3.5" />
-            {saving ? "..." : "Simpan"}
-          </button>
-          <button
-            onClick={onCancel}
-            className="flex items-center gap-1 rounded-lg border border-brand-100 bg-white px-3 py-1.5 text-xs font-bold text-muted hover:text-ink"
-          >
-            <X className="h-3.5 w-3.5" />
-          </button>
+      {/* One full-width cell: a 7-column edit form is unusable on a phone,
+          and colSpan cannot change per breakpoint. */}
+      <td className="px-3 py-3" colSpan={7}>
+        <div className="grid gap-3 lg:grid-cols-[minmax(0,2.2fr)_repeat(3,minmax(0,1fr))_auto_auto] lg:items-end">
+          <div className="min-w-0">
+            <label className="section-label mb-1 block">Nama / Email</label>
+            <input
+              className="w-full rounded-lg border border-brand-100 bg-white px-2.5 py-2 text-sm font-bold"
+              value={form.full_name}
+              onChange={(e) => setForm({ ...form, full_name: e.target.value })}
+            />
+            <input
+              className="mt-1.5 w-full rounded-lg border border-brand-100 bg-white px-2.5 py-2 text-xs text-muted"
+              value={form.email}
+              onChange={(e) => setForm({ ...form, email: e.target.value })}
+            />
+            <div className="relative mt-1.5">
+              <input
+                type={showPassword ? "text" : "password"}
+                autoComplete="new-password"
+                placeholder="Password baru (kosongkan jika tetap)"
+                className="w-full rounded-lg border border-brand-100 bg-white px-2.5 py-2 pr-9 text-xs"
+                value={form.new_password}
+                onChange={(e) => setForm({ ...form, new_password: e.target.value })}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                aria-label={showPassword ? "Sembunyikan password" : "Lihat password"}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted hover:text-ink"
+              >
+                {showPassword ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+              </button>
+            </div>
+            {error && <p className="mt-1 text-xs font-bold text-red-600">{error}</p>}
+          </div>
+
+          <div className="min-w-0">
+            <label className="section-label mb-1 block">Team</label>
+            <div className="relative">
+              <select
+                className="w-full appearance-none rounded-lg border border-brand-100 bg-white px-2.5 py-2 pr-7 text-sm"
+                value={form.team_id}
+                onChange={(e) => setForm({ ...form, team_id: e.target.value })}
+              >
+                <option value="">— Tanpa tim</option>
+                {teams.map((t) => (
+                  <option key={t.id} value={t.id}>{t.nama_tim}</option>
+                ))}
+              </select>
+              <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted" />
+            </div>
+          </div>
+
+          <div className="min-w-0">
+            <label className="section-label mb-1 block">Klasifikasi</label>
+            <div className="relative">
+              <select
+                className="w-full appearance-none rounded-lg border border-brand-100 bg-white px-2.5 py-2 pr-7 text-sm"
+                value={form.klasifikasi_id}
+                onChange={(e) => setForm({ ...form, klasifikasi_id: e.target.value })}
+              >
+                <option value="">— Pilih</option>
+                {klasifikasi.map((k) => (
+                  <option key={k.id} value={k.id}>{k.nama}</option>
+                ))}
+              </select>
+              <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted" />
+            </div>
+          </div>
+
+          <div className="min-w-0">
+            <label className="section-label mb-1 block">Status</label>
+            <div className="relative">
+              <select
+                className="w-full appearance-none rounded-lg border border-brand-100 bg-white px-2.5 py-2 pr-7 text-sm capitalize"
+                value={form.color_status}
+                onChange={(e) => setForm({ ...form, color_status: e.target.value })}
+              >
+                <option value="merah">Merah</option>
+                <option value="kuning">Kuning</option>
+                <option value="hijau">Hijau</option>
+              </select>
+              <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted" />
+            </div>
+          </div>
+
+          <label className="flex min-h-11 items-center gap-2 text-sm font-bold text-ink">
+            <input
+              type="checkbox"
+              checked={form.is_active}
+              onChange={(e) => setForm({ ...form, is_active: e.target.checked })}
+              className="h-4 w-4 accent-brand-600"
+            />
+            Aktif
+          </label>
+
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={save}
+              disabled={saving}
+              className="flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-lg bg-brand-600 px-3 text-xs font-bold text-white transition hover:bg-brand-700 disabled:opacity-50 lg:flex-none"
+            >
+              <Check className="h-3.5 w-3.5" />
+              {saving ? "..." : "Simpan"}
+            </button>
+            <button
+              type="button"
+              onClick={onCancel}
+              aria-label="Batal"
+              className="flex min-h-11 items-center justify-center rounded-lg border border-brand-100 bg-white px-3 text-xs font-bold text-muted transition hover:text-ink"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
         </div>
       </td>
     </tr>
@@ -225,7 +242,6 @@ function RolePickerButton({ member, onDone }: { member: Member; onDone: () => vo
   }
 
   const current = member.role in ROLE_META ? member.role : "member";
-  const meta = ROLE_META[current];
 
   return (
     <div className="relative" ref={ref}>
@@ -234,7 +250,12 @@ function RolePickerButton({ member, onDone }: { member: Member; onDone: () => vo
         disabled={loading}
         className="flex items-center gap-1 rounded-lg border border-brand-100 bg-white px-2.5 py-1 text-xs font-bold text-muted transition hover:border-brand-300 hover:text-ink disabled:opacity-50"
       >
-        {loading ? "..." : <>{open ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />} Role</>}
+        {loading ? "..." : (
+          <>
+            {open ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+            <span className="hidden sm:inline">Role</span>
+          </>
+        )}
       </button>
 
       {open && (
@@ -313,12 +334,12 @@ export function MemberTable({
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-brand-50 text-xs font-bold uppercase tracking-wide text-muted">
-                  <th className="px-3 py-2 text-left">Nama / Email</th>
-                  <th className="px-3 py-2 text-left">Team</th>
-                  <th className="px-3 py-2 text-left">Klasifikasi</th>
-                  <th className="px-3 py-2 text-left">Status</th>
-                  <th className="px-3 py-2 text-center">Aktif</th>
-                  <th className="px-3 py-2 text-left">Role</th>
+                  <th className="px-2 py-2 text-left sm:px-3">Nama / Email</th>
+                  <th className="hidden px-3 py-2 text-left lg:table-cell">Team</th>
+                  <th className="hidden px-3 py-2 text-left sm:table-cell">Klasifikasi</th>
+                  <th className="px-2 py-2 text-left sm:px-3">Status</th>
+                  <th className="hidden px-3 py-2 text-center sm:table-cell">Aktif</th>
+                  <th className="px-2 py-2 text-left sm:px-3">Role</th>
                   <th className="px-3 py-2" />
                 </tr>
               </thead>
@@ -338,23 +359,23 @@ export function MemberTable({
                     />
                   ) : (
                     <tr key={m.id} className="hover:bg-brand-50/50">
-                      <td className="px-3 py-2.5">
+                      <td className="px-2 py-2.5 sm:px-3">
                         <p className="font-bold text-ink">{m.full_name}</p>
                         <p className="text-xs text-muted">{m.email}</p>
                       </td>
-                      <td className="px-3 py-2.5 text-muted">{m.nama_tim ?? "—"}</td>
-                      <td className="px-3 py-2.5 text-muted">{m.klasifikasi_nama ?? "—"}</td>
-                      <td className="px-3 py-2.5">
+                      <td className="hidden px-3 py-2.5 text-muted lg:table-cell">{m.nama_tim ?? "—"}</td>
+                      <td className="hidden px-3 py-2.5 text-muted sm:table-cell">{m.klasifikasi_nama ?? "—"}</td>
+                      <td className="px-2 py-2.5 sm:px-3">
                         <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold capitalize ${COLOR_STYLE[m.color_status]}`}>
                           {m.color_status}
                         </span>
                       </td>
-                      <td className="px-3 py-2.5 text-center">
+                      <td className="hidden px-3 py-2.5 text-center sm:table-cell">
                         <span className={`text-xs font-bold ${m.is_active ? "text-green-600" : "text-muted line-through"}`}>
                           {m.is_active ? "✓" : "✗"}
                         </span>
                       </td>
-                      <td className="px-3 py-2.5">
+                      <td className="px-2 py-2.5 sm:px-3">
                         {(() => {
                           const roleMeta = ROLE_META[m.role] ?? ROLE_META.member;
                           return (
@@ -364,14 +385,14 @@ export function MemberTable({
                           );
                         })()}
                       </td>
-                      <td className="px-3 py-2.5">
-                        <div className="flex items-center gap-1.5">
+                      <td className="px-2 py-2.5 sm:px-3">
+                        <div className="flex items-center justify-end gap-1">
                           <button
                             onClick={() => setEditingId(m.id)}
                             className="flex items-center gap-1 rounded-lg border border-brand-100 bg-white px-2.5 py-1 text-xs font-bold text-muted transition hover:border-brand-300 hover:text-brand-600"
                           >
                             <Pencil className="h-3 w-3" />
-                            Edit
+                            <span className="hidden sm:inline">Edit</span>
                           </button>
                           <RolePickerButton
                             member={m}

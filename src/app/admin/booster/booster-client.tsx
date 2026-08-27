@@ -146,7 +146,7 @@ export function BoosterClient({ initial }: { initial: BoosterRow[] }) {
           </span>
           <div>
             <p className="font-black text-ink">Belum ada booster</p>
-            <p className="mt-1 text-sm text-muted">Klik "Tambah Booster" untuk membuat event booster baru.</p>
+            <p className="mt-1 text-sm text-muted">Klik &quot;Tambah Booster&quot; untuk membuat event booster baru.</p>
           </div>
         </div>
       ) : (

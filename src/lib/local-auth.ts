@@ -1,6 +1,8 @@
 import crypto from "node:crypto";
 import { cookies } from "next/headers";
 import { query } from "@/lib/db";
+import { DEMO_ACCOUNTS } from "@/lib/demo";
+import { getDemoRole, isDemoActive } from "@/lib/demo-session";
 
 export const SESSION_COOKIE = "brag_session";
 
@@ -51,6 +53,20 @@ export async function signInWithPassword(email: string, password: string) {
 
 export async function getCurrentUser() {
   const cookieStore = await cookies();
+
+  // Demo mode has no real sessions: the persona cookie resolves straight to a
+  // seeded account so the app is browsable without signing in.
+  if (await isDemoActive()) {
+    const role = await getDemoRole();
+
+    const demo = await query<LocalUser>(
+      `select id, email, full_name, role from app_users where lower(email) = lower($1) limit 1`,
+      [DEMO_ACCOUNTS[role].email]
+    );
+
+    return demo.rows[0] ?? null;
+  }
+
   const token = cookieStore.get(SESSION_COOKIE)?.value;
 
   if (!token) {

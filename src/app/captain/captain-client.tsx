@@ -22,11 +22,9 @@ type TabKey = typeof TABS[number]["key"];
 // ─── TYFCB Form ─────────────────────────────────────────────────────────────
 
 function TyfcbForm({
-  captainMemberId,
   members,
   allMembers,
 }: {
-  captainMemberId: string;
   members: TeamMember[];
   allMembers: SeasonMember[];
 }) {
@@ -468,13 +466,11 @@ function MemberListTab({
 // ─── Main Panel ───────────────────────────────────────────────────────────────
 
 export function CaptainPanel({
-  captainMemberId,
   members,
   allMembers,
   pendingTyfcb,
   terdaftarVisitors,
 }: {
-  captainMemberId: string;
   members: TeamMember[];
   allMembers: SeasonMember[];
   pendingTyfcb: PendingTyfcb[];
@@ -505,7 +501,6 @@ export function CaptainPanel({
 
       {tab === "tyfcb" && (
         <TyfcbForm
-          captainMemberId={captainMemberId}
           members={members}
           allMembers={allMembers}
         />

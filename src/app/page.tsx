@@ -2,10 +2,9 @@ import Link from "next/link";
 import { Banknote, ChevronRight, Crown, Gift, Medal, Receipt, Trophy, UserPlus, Users, Zap } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import { StatCard } from "@/components/stat-card";
-import { Button } from "@/components/ui/button";
 import { requireUser } from "@/lib/auth";
 import { query } from "@/lib/db";
-import { formatPoints } from "@/lib/utils";
+import { formatCurrencyCompact, formatPoints } from "@/lib/utils";
 
 // ─── DB query helpers ───────────────────────────────────────────────────────
 
@@ -32,24 +31,6 @@ async function getMemberProfile(userId: string) {
     limit 1
   `, [userId]);
   return rows[0] ?? null;
-}
-
-async function getMemberScores(memberId: string, seasonId: string) {
-  const { rows } = await query<{
-    score_tyfcb: number;
-    score_visitor: number;
-    score_bonus: number;
-    score_overall: number;
-  }>(`
-    select
-      coalesce(sum(case when kategori = 'tyfcb'   then points else 0 end), 0) as score_tyfcb,
-      coalesce(sum(case when kategori = 'visitor'  then points else 0 end), 0) as score_visitor,
-      coalesce(sum(case when kategori = 'bonus'    then points else 0 end), 0) as score_bonus,
-      coalesce(sum(points), 0) as score_overall
-    from score_ledger
-    where member_id = $1 and season_id = $2
-  `, [memberId, seasonId]);
-  return rows[0] ?? { score_tyfcb: 0, score_visitor: 0, score_bonus: 0, score_overall: 0 };
 }
 
 async function getTeamStandings(seasonId: string) {
@@ -89,7 +70,7 @@ async function getTeamStandings(seasonId: string) {
     left join visitor_by_team vt  on vt.team_id = t.id
     where t.season_id = $1
     group by t.id, t.nama_tim, tt.nilai_tyfcb, tt.count_tyfcb, vt.count_visitor
-    order by score_overall desc, substring(t.nama_tim, 6)::int
+    order by score_overall desc, substring(t.nama_tim, 5)::int
   `, [seasonId]);
   return rows;
 }
@@ -203,21 +184,13 @@ export default async function MemberDashboardPage() {
   }
 
   // Run all remaining queries in parallel
-  const [rawScores, teams, activeBoosters, recentTyfcb, topContributors] = await Promise.all([
-    getMemberScores(member.id, member.season_id),
+  const [teams, activeBoosters, recentTyfcb, topContributors] = await Promise.all([
     getTeamStandings(member.season_id),
     getActiveBoosters(member.season_id),
     getRecentTyfcb(member.id),
     getTopContributors(member.season_id),
   ]);
 
-  // pg returns numerics as strings; coerce to number
-  const scores = {
-    score_tyfcb:  Number(rawScores.score_tyfcb),
-    score_visitor: Number(rawScores.score_visitor),
-    score_bonus:  Number(rawScores.score_bonus),
-    score_overall: Number(rawScores.score_overall),
-  };
 
   const myTeam = teams.find((t) => t.team_id === member.team_id);
 
@@ -228,64 +201,64 @@ export default async function MemberDashboardPage() {
 
   return (
     <AppShell>
-      <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
-        <section className="space-y-6">
+      <div className="grid gap-5 lg:grid-cols-[1fr_340px]">
+        <section className="space-y-5">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.14em] text-brand-700">
+            <p className="section-label text-brand-700">
               Member Dashboard
             </p>
-            <h1 className="mt-2 text-3xl font-black tracking-normal text-ink sm:text-4xl">
+            <h1 className="mt-1.5 text-[1.75rem] font-black leading-tight tracking-tight text-ink sm:text-4xl">
               Halo, {member.full_name.split(" ")[0]}.
             </h1>
-            <p className="mt-2 max-w-2xl text-base text-muted">
+            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted sm:text-base">
               Bantu sesama member closing dan undang tamu.{" "}
               {myTeam ? `Setiap kontribusi bergerak ke skor ${myTeam.nama_tim}.` : ""}
             </p>
           </div>
 
           {/* Row 1 = season-wide totals, row 2 = this member's team, aligned by category. */}
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-3">
             <StatCard
               icon={Receipt}
               label="Total Transaksi"
               value={`${totalTransaksi.toLocaleString("id-ID")}×`}
               helper={`TYFCB verified dari ${teams.length} team`}
-              gradient="bg-gradient-to-br from-emerald-100 via-teal-50 to-cyan-100 border-emerald-200 text-emerald-700"
+              tone="emerald"
             />
             <StatCard
               icon={Banknote}
               label="Total Nominal TYFCB"
-              value={`Rp ${totalNominal.toLocaleString("id-ID")}`}
+              value={formatCurrencyCompact(totalNominal)}
               helper={`Akumulasi semua ${teams.length} team`}
-              gradient="bg-gradient-to-br from-sky-100 via-blue-50 to-indigo-100 border-sky-200 text-sky-700"
+              tone="sky"
             />
             <StatCard
               icon={Users}
               label="Total Visitor"
               value={`${totalVisitor.toLocaleString("id-ID")} tamu`}
               helper={`Akumulasi semua ${teams.length} team`}
-              gradient="bg-gradient-to-br from-amber-100 via-yellow-50 to-lime-100 border-amber-200 text-amber-700"
+              tone="amber"
             />
             <StatCard
               icon={Trophy}
               label={`Point ${myTeam?.nama_tim ?? "—"}`}
               value={`${formatPoints(Number(myTeam?.score_overall ?? 0))} pts`}
               helper="Total poin team keseluruhan"
-              gradient="bg-gradient-to-br from-red-100 via-rose-50 to-orange-100 border-red-200 text-brand-700"
+              tone="brand"
             />
             <StatCard
               icon={Banknote}
               label="TYFCB Team"
-              value={`Rp ${Number(myTeam?.nilai_tyfcb ?? 0).toLocaleString("id-ID")}`}
+              value={formatCurrencyCompact(Number(myTeam?.nilai_tyfcb ?? 0))}
               helper={`${Number(myTeam?.count_tyfcb ?? 0)}× transaksi verified`}
-              gradient="bg-gradient-to-br from-violet-100 via-purple-50 to-indigo-100 border-violet-200 text-violet-700"
+              tone="violet"
             />
             <StatCard
               icon={Users}
               label="Visitor Team"
               value={`${Number(myTeam?.count_visitor ?? 0)} tamu`}
               helper={`Akumulasi undangan ${myTeam?.nama_tim ?? "team"}`}
-              gradient="bg-gradient-to-br from-orange-100 via-amber-50 to-yellow-100 border-orange-200 text-orange-700"
+              tone="orange"
             />
           </div>
 
@@ -358,7 +331,7 @@ export default async function MemberDashboardPage() {
                     Lihat Leaderboard →
                   </Link>
                 </div>
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                <div className="grid grid-cols-3 gap-2.5 sm:gap-3">
                   {topContributors.map((top) => {
                     const meta = TOP_META[top.kategori];
                     if (!meta) return null;

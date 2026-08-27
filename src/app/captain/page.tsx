@@ -140,7 +140,6 @@ export default async function CaptainPage() {
       </div>
 
       <CaptainPanel
-        captainMemberId={ctx.member_id}
         members={members}
         allMembers={allMembers}
         pendingTyfcb={pendingTyfcb}

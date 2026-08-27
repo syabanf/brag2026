@@ -1,6 +1,6 @@
 "use client";
 
-import { Banknote, Briefcase, KeyRound, LogOut, Shield, UserCheck, UserCircle, Users, Zap, UsersRound } from "lucide-react";
+import { Banknote, Briefcase, LogOut, Shield, UserCheck, UserCircle, Users, Zap, UsersRound } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { logout } from "@/app/login/actions";

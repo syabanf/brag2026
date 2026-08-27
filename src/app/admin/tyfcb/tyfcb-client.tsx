@@ -61,7 +61,7 @@ export function TyfcbAdminClient({ initial }: { initial: TyfcbRow[] }) {
   return (
     <>
       {/* Filter tabs */}
-      <div className="mb-4 flex gap-2 overflow-x-auto">
+      <div className="no-scrollbar mb-4 flex gap-2 overflow-x-auto">
         {(["pending", "all", "verified", "rejected"] as Filter[]).map((f) => (
           <button
             key={f}
@@ -86,33 +86,40 @@ export function TyfcbAdminClient({ initial }: { initial: TyfcbRow[] }) {
       ) : (
         <div className="space-y-3">
           {visible.map((e) => (
-            <div key={e.id} className="rounded-2xl border border-brand-100 bg-white p-4">
-              <div className="flex flex-wrap items-start justify-between gap-3">
+            <div key={e.id} className="card p-3.5">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                 <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-xs text-muted">Pembeli:</span>
-                    <p className="font-black text-ink">{e.giver_name}</p>
-                    <span className="text-xs text-muted">· Penjual:</span>
-                    <p className="font-bold text-ink">{e.receiver_name}</p>
-                    <span className={`rounded-full px-2.5 py-0.5 text-xs font-black ${STATUS_STYLE[e.status]}`}>
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                    <span className={`rounded-full px-2.5 py-0.5 text-[0.68rem] font-black ${STATUS_STYLE[e.status]}`}>
                       {STATUS_LABEL[e.status]}
                     </span>
-                  </div>
-                  <p className="mt-1 text-sm text-muted">
-                    Rp {Number(e.nilai).toLocaleString("id-ID")} · {e.tanggal}
+                    <p className="num text-sm font-black text-ink">
+                      Rp {Number(e.nilai).toLocaleString("id-ID")}
+                    </p>
+                    <span className="text-xs text-muted">· {e.tanggal}</span>
                     {e.computed_score != null && (
-                      <span className="ml-2 font-bold text-brand-700">+{e.computed_score} pts</span>
+                      <span className="num text-xs font-bold text-brand-700">+{e.computed_score} pts</span>
                     )}
-                  </p>
+                  </div>
+
+                  <dl className="mt-2 space-y-0.5 text-sm">
+                    <div className="flex gap-2">
+                      <dt className="w-14 shrink-0 text-xs leading-5 text-muted">Pembeli</dt>
+                      <dd className="min-w-0 truncate font-bold text-ink">{e.giver_name}</dd>
+                    </div>
+                    <div className="flex gap-2">
+                      <dt className="w-14 shrink-0 text-xs leading-5 text-muted">Penjual</dt>
+                      <dd className="min-w-0 truncate font-bold text-ink">{e.receiver_name}</dd>
+                    </div>
+                  </dl>
                 </div>
 
-                {/* Action buttons */}
-                <div className="flex shrink-0 gap-2">
+                <div className="grid grid-cols-2 gap-2 lg:flex lg:shrink-0">
                   {e.status !== "verified" && (
                     <button
                       onClick={() => updateStatus(e.id, "verified")}
                       disabled={loading === e.id + "verified"}
-                      className="flex items-center gap-1.5 rounded-xl bg-green-600 px-3 py-2 text-xs font-black text-white hover:bg-green-700 disabled:opacity-50"
+                      className="flex min-h-11 items-center justify-center gap-1.5 rounded-xl bg-emerald-600 px-3 text-xs font-black text-white transition hover:bg-emerald-700 disabled:opacity-50"
                     >
                       <CheckCircle2 className="h-3.5 w-3.5" />
                       Approve
@@ -122,7 +129,7 @@ export function TyfcbAdminClient({ initial }: { initial: TyfcbRow[] }) {
                     <button
                       onClick={() => updateStatus(e.id, "pending")}
                       disabled={loading === e.id + "pending"}
-                      className="flex items-center gap-1.5 rounded-xl border border-yellow-300 bg-yellow-50 px-3 py-2 text-xs font-black text-yellow-700 hover:bg-yellow-100 disabled:opacity-50"
+                      className="flex min-h-11 items-center justify-center gap-1.5 rounded-xl border border-amber-300 bg-amber-50 px-3 text-xs font-black text-amber-700 transition hover:bg-amber-100 disabled:opacity-50"
                     >
                       <Clock className="h-3.5 w-3.5" />
                       Pending
@@ -132,7 +139,7 @@ export function TyfcbAdminClient({ initial }: { initial: TyfcbRow[] }) {
                     <button
                       onClick={() => updateStatus(e.id, "rejected")}
                       disabled={loading === e.id + "rejected"}
-                      className="flex items-center gap-1.5 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-black text-red-600 hover:bg-red-100 disabled:opacity-50"
+                      className="flex min-h-11 items-center justify-center gap-1.5 rounded-xl border border-red-200 bg-red-50 px-3 text-xs font-black text-red-600 transition hover:bg-red-100 disabled:opacity-50"
                     >
                       <XCircle className="h-3.5 w-3.5" />
                       Reject

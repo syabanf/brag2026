@@ -102,7 +102,7 @@ export function VisitorsAdminClient({ initial }: { initial: VisitorRow[] }) {
   return (
     <>
       {/* Filter tabs */}
-      <div className="mb-4 flex gap-2 overflow-x-auto">
+      <div className="no-scrollbar mb-4 flex gap-2 overflow-x-auto">
         {(["all", "terdaftar", "hadir", "hadir_penuh"] as Filter[]).map((f) => (
           <button
             key={f}
