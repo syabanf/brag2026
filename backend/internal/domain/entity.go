@@ -211,3 +211,38 @@ type Session struct {
 	UserID    string
 	ExpiresAt time.Time
 }
+
+type RaffleSource string
+
+const (
+	RaffleFromScore     RaffleSource = "score"
+	RaffleFromVisitor   RaffleSource = "visitor"
+	RaffleFromTyfcbPair RaffleSource = "tyfcb_pair"
+)
+
+// Prize is one item in the pool, either seeded by the committee or donated by
+// a member. Donations start pending until an admin approves them.
+type Prize struct {
+	ID             string   `json:"id"`
+	SeasonID       string   `json:"season_id"`
+	NamaHadiah     string   `json:"nama_hadiah"`
+	Deskripsi      *string  `json:"deskripsi"`
+	NilaiEstimasi  *float64 `json:"nilai_estimasi"`
+	DonaturID      *string  `json:"donatur_id"`
+	DonaturNama    *string  `json:"donatur_nama,omitempty"`
+	Alokasi        string   `json:"alokasi"`
+	KategoriTarget *string  `json:"kategori_target"`
+	Status         string   `json:"status"`
+	PemenangID     *string  `json:"pemenang_id"`
+	PemenangNama   *string  `json:"pemenang_nama,omitempty"`
+}
+
+func ValidPrizeAlokasi(v string) bool { return v == "kategori" || v == "undian" }
+
+func ValidPrizeStatus(v string) bool {
+	switch v {
+	case "pending", "approved", "rejected", "awarded":
+		return true
+	}
+	return false
+}

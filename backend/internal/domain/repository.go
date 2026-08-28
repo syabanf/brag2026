@@ -125,6 +125,39 @@ type BadgeRepository interface {
 	Stats(ctx context.Context, memberID, seasonID string) (BadgeStats, error)
 }
 
+// ScoringPassRepository backs the periodic settlements: bonuses that depend on
+// a whole day or week of activity rather than a single submission.
+type ScoringPassRepository interface {
+	// RosterForWeek reports, per team, how many active members there are and
+	// how many of them scored in the window.
+	RosterForWeek(ctx context.Context, seasonID string, from, to time.Time) ([]RosterStatus, error)
+	// TopTyfcbOfDay returns the single largest verified TYFCB of a day, or nil.
+	TopTyfcbOfDay(ctx context.Context, seasonID string, day time.Time) (*TyfcbEntry, error)
+	// MembersWithScoringDays lists members who scored on at least `days`
+	// distinct dates inside the window.
+	MembersWithScoringDays(ctx context.Context, seasonID string, from, to time.Time, days int) ([]string, error)
+	// AlreadySettled guards against paying the same pass twice: it looks for a
+	// ledger row already written with this source key.
+	AlreadySettled(ctx context.Context, sumberRef string) (bool, error)
+	// TeamOf resolves a member's team so a flat bonus lands on the right board.
+	TeamOf(ctx context.Context, memberID string) (*string, error)
+}
+
+type PrizeRepository interface {
+	List(ctx context.Context, seasonID string, status string) ([]Prize, error)
+	FindByID(ctx context.Context, id string) (*Prize, error)
+	Create(ctx context.Context, p *Prize) (string, error)
+	SetStatus(ctx context.Context, id, status string, pemenangID *string) error
+	Delete(ctx context.Context, id string) error
+	CountApprovedDonations(ctx context.Context, memberID string) (int, error)
+
+	// Raffle tickets are rebuilt from scratch per member, so re-running the
+	// issue pass is idempotent.
+	ReplaceTickets(ctx context.Context, seasonID, memberID string, bySource map[RaffleSource]int) error
+	TicketCounts(ctx context.Context, seasonID string) (map[string]int, error)
+	RaffleInputs(ctx context.Context, seasonID, memberID string) (score, visitors, newPairs int, err error)
+}
+
 type WeeklyEventRepository interface {
 	// ActiveOn returns the event covering a date, or nil when none is
 	// scheduled — the multiplier then stays at 1.

@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"github.com/ikurniawann/brag2026/backend/internal/domain"
@@ -13,6 +14,8 @@ type Member struct {
 	teams   domain.TeamRepository
 	classes domain.ClassificationRepository
 	seasons domain.SeasonRepository
+	ledger  domain.LedgerRepository
+	badges  *Badges
 	tx      domain.TxManager
 }
 
@@ -22,9 +25,14 @@ func NewMember(
 	teams domain.TeamRepository,
 	classes domain.ClassificationRepository,
 	seasons domain.SeasonRepository,
+	ledger domain.LedgerRepository,
+	badges *Badges,
 	tx domain.TxManager,
 ) *Member {
-	return &Member{members: members, users: users, teams: teams, classes: classes, seasons: seasons, tx: tx}
+	return &Member{
+		members: members, users: users, teams: teams, classes: classes,
+		seasons: seasons, ledger: ledger, badges: badges, tx: tx,
+	}
 }
 
 // Profile is a user's member record for the active season, or nil when the
@@ -174,6 +182,7 @@ func (u *Member) Update(ctx context.Context, id string, in UpdateMemberInput, au
 		return domain.Invalid("Status warna tidak valid.")
 	}
 
+	previousColor := member.ColorStatus
 	if in.ColorStatus != nil {
 		member.ColorStatus = domain.ColorStatus(*in.ColorStatus)
 	}
@@ -191,9 +200,28 @@ func (u *Member) Update(ctx context.Context, id string, in UpdateMemberInput, au
 		member.KlasifikasiID = in.KlasifikasiID
 	}
 
-	return u.tx.WithinTx(ctx, func(ctx context.Context) error {
+	err = u.tx.WithinTx(ctx, func(ctx context.Context) error {
 		if err := u.members.Update(ctx, member); err != nil {
 			return err
+		}
+
+		// Raising a member's colour rewards their whole team, per the PRD.
+		// Only upward steps pay; a correction downwards is worth nothing
+		// rather than negative, since the team never chose it.
+		if bonus := domain.LevelUpBonus(previousColor, member.ColorStatus); bonus > 0 {
+			ref := fmt.Sprintf("level_up:%s:%s", member.ID, member.ColorStatus)
+			keterangan := fmt.Sprintf("Naik level: %s → %s", previousColor, member.ColorStatus)
+
+			if err := u.ledger.Append(ctx, &domain.LedgerEntry{
+				SeasonID:   member.SeasonID,
+				TeamID:     member.TeamID,
+				Kategori:   domain.CategoryBonus,
+				Points:     bonus,
+				SumberRef:  &ref,
+				Keterangan: &keterangan,
+			}); err != nil {
+				return err
+			}
 		}
 
 		if in.FullName != nil || in.Email != nil {
@@ -230,6 +258,12 @@ func (u *Member) Update(ctx context.Context, id string, in UpdateMemberInput, au
 
 		return nil
 	})
+	if err != nil {
+		return err
+	}
+
+	u.badges.EvaluateQuietly(ctx, member.ID, member.SeasonID)
+	return nil
 }
 
 // SetPasswordFor lets a captain reset a password, but only for someone on

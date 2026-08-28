@@ -25,9 +25,12 @@ type Server struct {
 	visitors    *usecase.Visitor
 	catalog     *usecase.Catalog
 	leaderboard *usecase.Leaderboard
+	passes      *usecase.ScoringPass
+	prizes      *usecase.Prize
 
 	seasons    domain.SeasonRepository
 	memberRepo domain.MemberRepository
+	events     domain.WeeklyEventRepository
 }
 
 type Deps struct {
@@ -39,8 +42,11 @@ type Deps struct {
 	Visitors    *usecase.Visitor
 	Catalog     *usecase.Catalog
 	Leaderboard *usecase.Leaderboard
+	Passes      *usecase.ScoringPass
+	Prizes      *usecase.Prize
 	Seasons     domain.SeasonRepository
 	MemberRepo  domain.MemberRepository
+	Events      domain.WeeklyEventRepository
 }
 
 func NewServer(d Deps) *Server {
@@ -48,7 +54,8 @@ func NewServer(d Deps) *Server {
 		cfg: d.Config, db: d.DB,
 		auth: d.Auth, members: d.Members, tyfcb: d.Tyfcb,
 		visitors: d.Visitors, catalog: d.Catalog, leaderboard: d.Leaderboard,
-		seasons: d.Seasons, memberRepo: d.MemberRepo,
+		passes: d.Passes, prizes: d.Prizes,
+		seasons: d.Seasons, memberRepo: d.MemberRepo, events: d.Events,
 	}
 }
 
@@ -80,6 +87,10 @@ func (s *Server) Router() http.Handler {
 			r.Post("/auth/logout", s.handleLogout)
 			r.Get("/public/leaderboard", s.handleLeaderboard)
 			r.Get("/public/leaderboard/teams/{id}/history", s.handleTeamHistory)
+
+			// The tour introduces the product, so it works before signing in.
+			r.Get("/tour/steps", s.handleTourSteps)
+			r.Get("/tour/voice", s.handleTourVoice)
 		})
 
 		// Any signed-in member.
@@ -96,12 +107,17 @@ func (s *Server) Router() http.Handler {
 			r.Get("/boosters", s.handleListBoosters)
 			r.Get("/boosters/{id}", s.handleGetBooster)
 			r.Get("/badges", s.handleBadges)
+			r.Get("/events", s.handleListWeeklyEvents)
+			r.Get("/events/bank", s.handleEventBank)
+			r.Get("/prizes", s.handleListPrizes)
+			r.Get("/raffle/tickets", s.handleTicketStandings)
 
 			// Recording a contribution needs a competition profile.
 			r.Group(func(r chi.Router) {
 				r.Use(s.withMember)
 				r.Post("/tyfcb", s.handleSubmitTyfcb)
 				r.Post("/visitors", s.handleRegisterVisitor)
+				r.Post("/prizes/donate", s.handleDonatePrize)
 			})
 		})
 
@@ -146,6 +162,21 @@ func (s *Server) Router() http.Handler {
 
 			r.Get("/visitors", s.handleListVisitors)
 			r.Patch("/visitors/{id}", s.handleUpdateVisitor)
+
+			r.Get("/events", s.handleListWeeklyEvents)
+			r.Post("/events", s.handleScheduleEvent)
+			r.Delete("/events/{id}", s.handleDeleteWeeklyEvent)
+
+			// Periodic settlements. Both are idempotent per period, so the
+			// committee can re-run them safely.
+			r.Post("/passes/weekly", s.handleWeeklyPass)
+			r.Post("/passes/daily", s.handleDailyPass)
+
+			r.Get("/prizes", s.handleListPrizes)
+			r.Post("/prizes", s.handleSeedPrize)
+			r.Patch("/prizes/{id}", s.handleSetPrizeStatus)
+			r.Delete("/prizes/{id}", s.handleDeletePrize)
+			r.Post("/raffle/issue", s.handleIssueTickets)
 		})
 	})
 

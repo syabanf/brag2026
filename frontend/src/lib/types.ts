@@ -156,3 +156,59 @@ export type CaptainTeam = {
   pending_tyfcb: TyfcbEntry[];
   terdaftar_visitors: Visitor[];
 };
+
+export type TourStep = {
+  id: string;
+  title: string;
+  body: string;
+  route: string;
+};
+
+export type WeeklyEvent = {
+  id: string;
+  season_id: string;
+  minggu_ke: number;
+  event_code: string;
+  target_classification_id: string | null;
+  tanggal_mulai: string;
+  tanggal_selesai: string;
+  nama: string;
+  mekanik: string;
+};
+
+export type EventBankEntry = {
+  code: string;
+  nama: string;
+  mekanik: string;
+};
+
+export type Prize = {
+  id: string;
+  season_id: string;
+  nama_hadiah: string;
+  deskripsi: string | null;
+  nilai_estimasi: number | null;
+  donatur_id: string | null;
+  donatur_nama?: string | null;
+  alokasi: "kategori" | "undian";
+  kategori_target: string | null;
+  status: "pending" | "approved" | "rejected" | "awarded";
+  pemenang_id: string | null;
+  pemenang_nama?: string | null;
+};
+
+export type TicketSummary = {
+  member_id: string;
+  full_name: string;
+  nama_tim: string | null;
+  tickets: number;
+};
+
+export type PassResult = {
+  period: string;
+  full_roster_teams: string[];
+  streak_awards: number;
+  high_roller_member?: string;
+  points_added: number;
+  skipped?: string[];
+};

@@ -12,6 +12,7 @@ import {
   Zap,
 } from "lucide-react";
 import { useAuth } from "../lib/use-auth";
+import { QuickTour, TourButton } from "./quick-tour";
 import { initials } from "../lib/format";
 
 const navItems = [
@@ -19,7 +20,7 @@ const navItems = [
   { to: "/leaderboard", label: "Leaderboard", icon: BarChart3 },
   { to: "/submit", label: "Contribute", icon: Plus, primary: true },
   { to: "/booster", label: "Booster", icon: Zap },
-  { to: "/awards", label: "Awards", icon: Trophy },
+  { to: "/prizes", label: "Hadiah", icon: Trophy },
 ];
 
 export function AppShell({ children }: { children: ReactNode }) {
@@ -44,6 +45,8 @@ export function AppShell({ children }: { children: ReactNode }) {
         </Link>
 
         <div className="relative flex shrink-0 items-center gap-2">
+          <TourButton />
+
           {(user?.role === "admin" || user?.role === "captain") && (
             <Link
               to={user.role === "admin" ? "/admin/members" : "/captain"}
@@ -112,6 +115,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
       <DesktopNav />
       <MobileNav />
+      <QuickTour />
     </div>
   );
 }

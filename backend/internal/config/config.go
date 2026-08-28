@@ -16,6 +16,11 @@ type Config struct {
 	CookieName     string
 	CookieSecure   bool
 	ShutdownGrace  time.Duration
+
+	// Optional: without these the guided tour narrates using the browser's
+	// own speech synthesis instead.
+	ElevenLabsKey   string
+	ElevenLabsVoice string
 }
 
 func Load() (*Config, error) {
@@ -25,6 +30,9 @@ func Load() (*Config, error) {
 		CookieName:    env("SESSION_COOKIE", "brag_session"),
 		CookieSecure:  envBool("COOKIE_SECURE", false),
 		ShutdownGrace: 15 * time.Second,
+
+		ElevenLabsKey:   env("ELEVENLABS_API_KEY", ""),
+		ElevenLabsVoice: env("ELEVENLABS_VOICE_ID", ""),
 	}
 
 	if cfg.DatabaseURL == "" {

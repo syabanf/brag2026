@@ -9,6 +9,8 @@ import { DashboardPage } from "./pages/dashboard";
 import { LeaderboardPage } from "./pages/leaderboard";
 import { SubmitPage } from "./pages/submit";
 import { CaptainPage } from "./pages/captain";
+import { PrizesPage } from "./pages/prizes";
+import { AdminEventsPage } from "./pages/admin-events";
 import {
   AdminClassificationsPage,
   AdminMembersPage,
@@ -64,6 +66,7 @@ export default function App() {
           <Route path="/booster" element={<Protected><BoosterPage /></Protected>} />
           <Route path="/booster/:id" element={<Protected><BoosterDetailPage /></Protected>} />
           <Route path="/awards" element={<Protected><AwardsPage /></Protected>} />
+          <Route path="/prizes" element={<Protected><PrizesPage /></Protected>} />
           <Route path="/history" element={<Protected><HistoryPage /></Protected>} />
           <Route path="/profile" element={<Protected><ProfilePage /></Protected>} />
 
@@ -74,6 +77,7 @@ export default function App() {
           <Route path="/admin/classifications" element={<Protected role="admin"><AdminClassificationsPage /></Protected>} />
           <Route path="/admin/tyfcb" element={<Protected role="admin"><AdminTyfcbPage /></Protected>} />
           <Route path="/admin/visitors" element={<Protected role="admin"><AdminVisitorsPage /></Protected>} />
+          <Route path="/admin/events" element={<Protected role="admin"><AdminEventsPage /></Protected>} />
 
           <Route path="*" element={<Protected><NotFoundPage /></Protected>} />
         </Routes>

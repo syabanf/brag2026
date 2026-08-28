@@ -56,14 +56,18 @@ func main() {
 	boosters := postgres.NewBoosterRepo(db)
 	badges := postgres.NewBadgeRepo(db)
 	events := postgres.NewWeeklyEventRepo(db)
+	passRepo := postgres.NewScoringPassRepo(db)
+	prizeRepo := postgres.NewPrizeRepo(db)
 
 	// Use cases (application layer).
 	badgeUC := usecase.NewBadges(badges)
 	authUC := usecase.NewAuth(users, sessions)
-	memberUC := usecase.NewMember(members, users, teams, classes, seasons, db)
+	memberUC := usecase.NewMember(members, users, teams, classes, seasons, ledger, badgeUC, db)
 	tyfcbUC := usecase.NewTyfcb(tyfcbRepo, members, ledger, seasons, events, badgeUC, db)
 	visitorUC := usecase.NewVisitor(visitorRepo, members, ledger, events, badgeUC, db)
 	catalogUC := usecase.NewCatalog(teams, classes, boosters, seasons)
+	passUC := usecase.NewScoringPass(passRepo, ledger, events, seasons, badgeUC, db)
+	prizeUC := usecase.NewPrize(prizeRepo, members, seasons, badgeUC, db)
 	leaderboardUC := usecase.NewLeaderboard(ledger, members, tyfcbRepo, visitorRepo, boosters, badges, seasons)
 
 	server := delivery.NewServer(delivery.Deps{
@@ -75,8 +79,11 @@ func main() {
 		Visitors:    visitorUC,
 		Catalog:     catalogUC,
 		Leaderboard: leaderboardUC,
+		Passes:      passUC,
+		Prizes:      prizeUC,
 		Seasons:     seasons,
 		MemberRepo:  members,
+		Events:      events,
 	})
 
 	httpServer := &http.Server{

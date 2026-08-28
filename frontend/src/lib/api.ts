@@ -7,8 +7,14 @@ import type {
   Leaderboard,
   LedgerEntry,
   Member,
+  EventBankEntry,
+  PassResult,
+  Prize,
   Team,
+  TicketSummary,
+  TourStep,
   TyfcbEntry,
+  WeeklyEvent,
   User,
   Visitor,
 } from "./types";
@@ -113,6 +119,36 @@ export const api = {
 
   badges: () => get<Badge[]>("/badges"),
 
+  tour: {
+    steps: () => get<TourStep[]>("/tour/steps"),
+    /**
+     * Returns the narration audio, or null when the server has no
+     * text-to-speech credentials — the caller then uses the browser voice.
+     */
+    voice: async (stepId: string): Promise<Blob | null> => {
+      const res = await fetch(`${BASE}/api/tour/voice?step=${stepId}`, {
+        credentials: "include",
+      });
+      const type = res.headers.get("content-type") ?? "";
+      if (!res.ok || !type.startsWith("audio/")) return null;
+      return res.blob();
+    },
+  },
+
+  events: {
+    list: () => get<WeeklyEvent[]>("/events"),
+    bank: () => get<EventBankEntry[]>("/events/bank"),
+  },
+
+  prizes: {
+    list: (status?: string) => get<Prize[]>(`/prizes${status ? `?status=${status}` : ""}`),
+    donate: (body: Record<string, unknown>) => post<{ id: string }>("/prizes/donate", body),
+  },
+
+  raffle: {
+    tickets: () => get<TicketSummary[]>("/raffle/tickets"),
+  },
+
   captain: {
     team: () => get<CaptainTeam>("/captain/team"),
     submitTyfcb: (member_id: string, buyer_id: string, nilai: number, tanggal: string) =>
@@ -167,6 +203,27 @@ export const api = {
         get<Visitor[]>(`/admin/visitors${status ? `?status=${status}` : ""}`),
       update: (id: string, body: { status_hadir?: string; is_converted?: boolean }) =>
         patch<{ ok: boolean }>(`/admin/visitors/${id}`, body),
+    },
+    events: {
+      list: () => get<WeeklyEvent[]>("/admin/events"),
+      schedule: (body: Record<string, unknown>) => post<{ id: string }>("/admin/events", body),
+      remove: (id: string) => del<{ ok: boolean }>(`/admin/events/${id}`),
+    },
+    passes: {
+      weekly: (day?: string) =>
+        post<PassResult>(`/admin/passes/weekly${day ? `?day=${day}` : ""}`),
+      daily: (day?: string) =>
+        post<PassResult>(`/admin/passes/daily${day ? `?day=${day}` : ""}`),
+    },
+    prizes: {
+      list: (status?: string) => get<Prize[]>(`/admin/prizes${status ? `?status=${status}` : ""}`),
+      seed: (body: Record<string, unknown>) => post<{ id: string }>("/admin/prizes", body),
+      setStatus: (id: string, status: string, pemenang_id?: string | null) =>
+        patch<{ ok: boolean }>(`/admin/prizes/${id}`, { status, pemenang_id: pemenang_id ?? null }),
+      remove: (id: string) => del<{ ok: boolean }>(`/admin/prizes/${id}`),
+    },
+    raffle: {
+      issue: () => post<TicketSummary[]>("/admin/raffle/issue"),
     },
   },
 };

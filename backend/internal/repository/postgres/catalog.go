@@ -329,17 +329,25 @@ func (r *BadgeRepo) Stats(ctx context.Context, memberID, seasonID string) (domai
 		  (select count(distinct created_at::date)::int from score_ledger
 		     where member_id = $1 and season_id = $2 and points > 0),
 		  (select exists (select 1 from members
-		     where id = $1 and color_status <> 'merah'))
+		     where id = $1 and color_status <> 'merah')),
+		  -- TEAM_PLAYER: the member's team collected a Full Roster bonus, which
+		  -- by definition required this member to have scored that week.
+		  (select exists (
+		     select 1 from score_ledger sl
+		     join members m on m.id = $1
+		     where sl.season_id = $2 and sl.team_id = m.team_id
+		       and sl.sumber_ref like 'full_roster:%')),
+		  (select count(*)::int from prize_pool
+		     where donatur_id = $1 and status in ('approved', 'awarded'))
 	`, memberID, seasonID).Scan(
 		&s.VerifiedTyfcbCount, &s.DistinctReceivers, &s.LargestTyfcb,
 		&s.ScoreOverall, &s.VisitorsHadir, &s.VisitorsHadirPenuh,
 		&s.Conversions, &s.DistinctScoringDays, &s.ColorStatusRaised,
+		&s.ContributedFullRoster, &s.ApprovedPrizes,
 	)
 	if err != nil {
 		return domain.BadgeStats{}, err
 	}
 
-	// TEAM_PLAYER needs the weekly Full Roster pass and PATRON needs the prize
-	// pool; neither exists yet, so both stay false rather than being guessed.
 	return s, nil
 }
