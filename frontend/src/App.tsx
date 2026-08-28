@@ -3,6 +3,8 @@ import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-route
 import { AuthProvider } from "./lib/auth-context";
 import { useAuth } from "./lib/use-auth";
 import { AppShell } from "./components/app-shell";
+import { Toaster } from "./components/toast";
+import { ErrorBoundary } from "./components/error-boundary";
 import { Spinner } from "./components/ui";
 import { LoginPage } from "./pages/login";
 import { DashboardPage } from "./pages/dashboard";
@@ -48,8 +50,9 @@ function Protected({ children, role }: { children: ReactNode; role?: "admin" | "
 
 export default function App() {
   return (
-    <BrowserRouter>
-      <AuthProvider>
+    <ErrorBoundary>
+      <BrowserRouter>
+        <AuthProvider>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
 
@@ -87,7 +90,9 @@ export default function App() {
 
           <Route path="*" element={<Protected><NotFoundPage /></Protected>} />
         </Routes>
-      </AuthProvider>
-    </BrowserRouter>
+          <Toaster />
+        </AuthProvider>
+      </BrowserRouter>
+    </ErrorBoundary>
   );
 }

@@ -1,15 +1,61 @@
 stages:
+  - verify
   - deploy
 
+# Every push runs the same gates a developer runs locally, so a broken build
+# is caught before it reaches main rather than on the server.
+
+backend:
+  stage: verify
+  image: golang:1.26-alpine
+  script:
+    - cd backend
+    - gofmt -l . | tee /tmp/fmt && test ! -s /tmp/fmt
+    - go vet ./...
+    - go test ./...
+    - go build -o /dev/null ./cmd/api
+  rules:
+    - changes: [backend/**/*]
+    - if: $CI_COMMIT_BRANCH == "main"
+
+frontend:
+  stage: verify
+  image: node:22-alpine
+  script:
+    - cd frontend
+    - npm ci
+    - npx tsc --noEmit
+    - npm run lint
+    - npm run build
+  cache:
+    key: { files: [frontend/package-lock.json] }
+    paths: [frontend/node_modules]
+  rules:
+    - changes: [frontend/**/*]
+    - if: $CI_COMMIT_BRANCH == "main"
+
+secrets:
+  stage: verify
+  image: alpine:3.21
+  script:
+    - apk add --no-cache git bash
+    - bash scripts/security-check.sh
+  rules:
+    - if: $CI_COMMIT_BRANCH
+
+# Rebuilds the compose stack in place. The old script ran `npm ci` and
+# restarted a pm2 process, which belonged to the Next.js app that no longer
+# exists in this repository.
 deploy-production:
   stage: deploy
+  needs: [backend, frontend, secrets]
   only:
     - main
   script:
-    - source ~/.bash_profile
     - cd ~/brag2026
     - git pull origin main
-    - npm ci
-    - npm run build
-    - pm2 restart brag2026
+    - docker compose up -d --build
+    - docker compose ps
     - echo "Deploy selesai $(date)"
+  environment:
+    name: production

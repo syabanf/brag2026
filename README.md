@@ -201,6 +201,15 @@ bash scripts/test.sh            # go test + both production builds
 bash scripts/security-check.sh  # tracked-secret scan + dependency audit
 ```
 
+CI runs the same checks on every push (`.gitlab-ci.yml`), and deploy only runs
+once all three pass.
+
+Tests cover two layers. `internal/domain` pins the rules as pure functions —
+bands, pair penalty, event multipliers, badge thresholds. `internal/usecase`
+pins the orchestration against in-memory repositories: which ledger rows a
+verification writes, that a reversal nets to zero, that a boosted milestone is
+given back in full, and that a losing optimistic-lock update awards nothing.
+
 ## Documents
 
 - [Product Requirements](./docs/product/PRD.md) — scoring spec and event bank

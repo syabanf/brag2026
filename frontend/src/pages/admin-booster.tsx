@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { Loader2, Pencil, Plus, Trash2, X, Zap } from "lucide-react";
 import { api, ApiError } from "../lib/api";
+import { toast } from "../lib/toast-store";
 import { useApi } from "../lib/use-api";
 import { formatDate, today } from "../lib/format";
 import { Badge, EmptyState, ErrorNote, PageHeader, Spinner } from "../components/ui";
@@ -73,7 +74,7 @@ export function AdminBoosterPage() {
                       await api.admin.boosters.remove(booster.id);
                       reload();
                     } catch (err) {
-                      alert(err instanceof ApiError ? err.message : "Gagal menghapus.");
+                      toast.error(err instanceof ApiError ? err.message : "Gagal menghapus.");
                     }
                   }}
                   className="grid h-10 w-10 place-items-center rounded-lg border border-red-100 text-red-500 transition hover:bg-red-50"

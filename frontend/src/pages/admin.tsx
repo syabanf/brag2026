@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { CheckCircle2, Clock, Loader2, Pencil, Plus, Trash2, X, XCircle } from "lucide-react";
 import { api, ApiError } from "../lib/api";
+import { toast } from "../lib/toast-store";
 import { useApi } from "../lib/use-api";
 import { formatCurrency, formatDate } from "../lib/format";
 import { Badge, EmptyState, ErrorNote, PageHeader, Spinner, Tabs } from "../components/ui";
@@ -21,7 +22,7 @@ export function AdminTyfcbPage() {
       await api.admin.tyfcb.setStatus(id, status);
       reload();
     } catch (err) {
-      alert(err instanceof ApiError ? err.message : "Gagal memperbarui status.");
+      toast.error(err instanceof ApiError ? err.message : "Gagal memperbarui status.");
     } finally {
       setBusy(null);
     }
@@ -158,7 +159,7 @@ export function AdminVisitorsPage() {
       await api.admin.visitors.update(id, body);
       reload();
     } catch (err) {
-      alert(err instanceof ApiError ? err.message : "Gagal memperbarui visitor.");
+      toast.error(err instanceof ApiError ? err.message : "Gagal memperbarui visitor.");
     } finally {
       setBusy(null);
     }
@@ -642,7 +643,7 @@ function MasterData({
       setDraft("");
       setEditing(null);
     } catch (err) {
-      alert(err instanceof ApiError ? err.message : "Gagal menyimpan.");
+      toast.error(err instanceof ApiError ? err.message : "Gagal menyimpan.");
     } finally {
       setBusy(false);
     }

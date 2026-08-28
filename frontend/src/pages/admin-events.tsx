@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { CalendarDays, Loader2, Network, Play, Ticket, Trash2 } from "lucide-react";
 import { api, ApiError } from "../lib/api";
+import { toast } from "../lib/toast-store";
 import { useApi } from "../lib/use-api";
 import { formatDate, today } from "../lib/format";
 import { EmptyState, ErrorNote, PageHeader, Spinner, Tabs } from "../components/ui";
@@ -62,7 +63,7 @@ function EventSchedule() {
       });
       reload();
     } catch (err) {
-      alert(err instanceof ApiError ? err.message : "Gagal menjadwalkan.");
+      toast.error(err instanceof ApiError ? err.message : "Gagal menjadwalkan.");
     } finally {
       setBusy(false);
     }
@@ -296,7 +297,7 @@ function PrizeAdmin() {
       await api.admin.prizes.setStatus(id, status);
       reload();
     } catch (err) {
-      alert(err instanceof ApiError ? err.message : "Gagal memperbarui.");
+      toast.error(err instanceof ApiError ? err.message : "Gagal memperbarui.");
     } finally {
       setBusy(null);
     }
@@ -320,9 +321,9 @@ function PrizeAdmin() {
             setIssuing(true);
             try {
               const rows = await api.admin.raffle.issue();
-              alert(`Tiket diterbitkan untuk ${rows.length} anggota.`);
+              toast.ok(`Tiket diterbitkan untuk ${rows.length} anggota.`);
             } catch (err) {
-              alert(err instanceof ApiError ? err.message : "Gagal menerbitkan tiket.");
+              toast.error(err instanceof ApiError ? err.message : "Gagal menerbitkan tiket.");
             } finally {
               setIssuing(false);
             }
@@ -393,7 +394,7 @@ function SphereManager() {
   async function create(e: FormEvent) {
     e.preventDefault();
     if (selected.length < 2) {
-      alert("Pilih minimal dua klasifikasi — satu sphere butuh dua sisi untuk saling merujuk.");
+      toast.error("Pilih minimal dua klasifikasi — satu sphere butuh dua sisi untuk saling merujuk.");
       return;
     }
 
@@ -404,7 +405,7 @@ function SphereManager() {
       setSelected([]);
       reload();
     } catch (err) {
-      alert(err instanceof ApiError ? err.message : "Gagal menyimpan.");
+      toast.error(err instanceof ApiError ? err.message : "Gagal menyimpan.");
     } finally {
       setBusy(false);
     }

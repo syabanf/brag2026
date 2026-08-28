@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { Ban, KeyRound, Loader2, Users } from "lucide-react";
 import { api, ApiError } from "../lib/api";
+import { toast } from "../lib/toast-store";
 import { useApi } from "../lib/use-api";
 import { formatCurrency, formatDate, today } from "../lib/format";
 import { Badge, EmptyState, ErrorNote, PageHeader, Spinner, Tabs } from "../components/ui";
@@ -57,7 +58,7 @@ function Roster({
 
   async function reset(id: string) {
     if (password.length < 6) {
-      alert("Kata sandi minimal 6 karakter.");
+      toast.error("Kata sandi minimal 6 karakter.");
       return;
     }
     setBusy(true);
@@ -66,9 +67,9 @@ function Roster({
       setTarget(null);
       setPassword("");
       onChanged();
-      alert("Kata sandi berhasil diganti.");
+      toast.ok("Kata sandi berhasil diganti.");
     } catch (err) {
-      alert(err instanceof ApiError ? err.message : "Gagal mengganti kata sandi.");
+      toast.error(err instanceof ApiError ? err.message : "Gagal mengganti kata sandi.");
     } finally {
       setBusy(false);
     }
@@ -155,7 +156,7 @@ function TyfcbTab({
       setForm({ member_id: "", buyer_id: "", nilai: "", tanggal: today() });
       onChanged();
     } catch (err) {
-      alert(err instanceof ApiError ? err.message : "Gagal menyimpan.");
+      toast.error(err instanceof ApiError ? err.message : "Gagal menyimpan.");
     } finally {
       setBusy(false);
     }
@@ -266,7 +267,7 @@ function VisitorTab({
       setForm({ member_id: "", nama: "", kontak: "", tanggal: today() });
       onChanged();
     } catch (err) {
-      alert(err instanceof ApiError ? err.message : "Gagal menyimpan.");
+      toast.error(err instanceof ApiError ? err.message : "Gagal menyimpan.");
     } finally {
       setBusy(false);
     }
@@ -360,7 +361,7 @@ function VoidButton({ onVoid, onDone }: { onVoid: () => Promise<unknown>; onDone
           await onVoid();
           onDone();
         } catch (err) {
-          alert(err instanceof ApiError ? err.message : "Gagal membatalkan.");
+          toast.error(err instanceof ApiError ? err.message : "Gagal membatalkan.");
         } finally {
           setBusy(false);
         }
