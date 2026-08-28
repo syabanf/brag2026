@@ -223,3 +223,23 @@ export type ActivityItem = {
   points?: number;
   created_at: string;
 };
+
+export type ContactSphere = {
+  id: string;
+  season_id: string;
+  nama: string;
+  deskripsi: string | null;
+  klasifikasi: Classification[];
+};
+
+export type OneToOne = {
+  id: string;
+  season_id: string;
+  member_a: string;
+  member_b: string;
+  member_a_name?: string;
+  member_b_name?: string;
+  tanggal: string;
+  catatan: string | null;
+  created_at: string;
+};

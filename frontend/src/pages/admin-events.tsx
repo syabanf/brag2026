@@ -1,12 +1,12 @@
 import { useState, type FormEvent } from "react";
-import { CalendarDays, Loader2, Play, Ticket, Trash2 } from "lucide-react";
+import { CalendarDays, Loader2, Network, Play, Ticket, Trash2 } from "lucide-react";
 import { api, ApiError } from "../lib/api";
 import { useApi } from "../lib/use-api";
 import { formatDate, today } from "../lib/format";
 import { EmptyState, ErrorNote, PageHeader, Spinner, Tabs } from "../components/ui";
 import type { PassResult } from "../lib/types";
 
-type Tab = "schedule" | "passes" | "prizes";
+type Tab = "schedule" | "passes" | "spheres" | "prizes";
 
 export function AdminEventsPage() {
   const [tab, setTab] = useState<Tab>("schedule");
@@ -23,6 +23,7 @@ export function AdminEventsPage() {
         tabs={[
           { key: "schedule" as Tab, label: "Jadwal Event" },
           { key: "passes" as Tab, label: "Pass Berkala" },
+          { key: "spheres" as Tab, label: "Contact Sphere" },
           { key: "prizes" as Tab, label: "Prize Pool" },
         ]}
         active={tab}
@@ -31,6 +32,7 @@ export function AdminEventsPage() {
 
       {tab === "schedule" && <EventSchedule />}
       {tab === "passes" && <PassRunner />}
+      {tab === "spheres" && <SphereManager />}
       {tab === "prizes" && <PrizeAdmin />}
     </div>
   );
@@ -362,6 +364,137 @@ function PrizeAdmin() {
                 </select>
                 {busy === prize.id && <Loader2 className="h-4 w-4 animate-spin text-muted" />}
               </div>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+/**
+ * Contact spheres are what POWER_TEAM week rewards: a set of classifications
+ * that naturally refer each other business. A transaction whose two sides sit
+ * in the same sphere scores 1.5×.
+ */
+function SphereManager() {
+  const { data, error, loading, reload } = useApi(() => api.admin.spheres.list());
+  const { data: meta } = useApi(() => api.admin.teams.meta());
+  const [nama, setNama] = useState("");
+  const [selected, setSelected] = useState<string[]>([]);
+  const [busy, setBusy] = useState(false);
+
+  const classifications = meta?.classifications ?? [];
+
+  function toggle(id: string) {
+    setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  }
+
+  async function create(e: FormEvent) {
+    e.preventDefault();
+    if (selected.length < 2) {
+      alert("Pilih minimal dua klasifikasi — satu sphere butuh dua sisi untuk saling merujuk.");
+      return;
+    }
+
+    setBusy(true);
+    try {
+      await api.admin.spheres.create(nama, null, selected);
+      setNama("");
+      setSelected([]);
+      reload();
+    } catch (err) {
+      alert(err instanceof ApiError ? err.message : "Gagal menyimpan.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <form onSubmit={create} className="card space-y-3 p-4">
+        <h2 className="flex items-center gap-2 text-base font-black text-ink">
+          <Network className="h-[1.1rem] w-[1.1rem] text-brand-600" />
+          Buat contact sphere
+        </h2>
+        <p className="text-xs leading-relaxed text-muted">
+          Kelompokkan klasifikasi yang secara alami saling merujuk bisnis — misalnya sphere
+          pernikahan berisi Fotografi, Katering, dan Venue.
+        </p>
+
+        <input
+          required
+          value={nama}
+          onChange={(e) => setNama(e.target.value)}
+          placeholder="Nama sphere, mis. Wedding"
+          className="field"
+        />
+
+        <fieldset>
+          <legend className="section-label mb-2">Klasifikasi anggota</legend>
+          <div className="flex flex-wrap gap-2">
+            {classifications.map((k) => {
+              const on = selected.includes(k.id);
+              return (
+                <button
+                  key={k.id}
+                  type="button"
+                  onClick={() => toggle(k.id)}
+                  aria-pressed={on}
+                  className={`min-h-10 rounded-full border px-3 text-xs font-bold transition ${
+                    on
+                      ? "border-brand-600 bg-brand-600 text-white"
+                      : "border-brand-100 bg-white text-muted hover:bg-brand-50"
+                  }`}
+                >
+                  {k.nama}
+                </button>
+              );
+            })}
+          </div>
+        </fieldset>
+
+        <button type="submit" disabled={busy} className="btn-primary w-full">
+          {busy && <Loader2 className="h-4 w-4 animate-spin" />}
+          Simpan sphere
+        </button>
+      </form>
+
+      {loading && <Spinner />}
+      {error && <ErrorNote message={error} onRetry={reload} />}
+      {data && data.length === 0 && (
+        <EmptyState message="Belum ada contact sphere. POWER_TEAM tidak akan memberi bonus sampai ada." />
+      )}
+
+      <ul className="space-y-2">
+        {data?.map((sphere) => (
+          <li key={sphere.id} className="card p-3.5">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-black text-ink">{sphere.nama}</p>
+                <div className="mt-1.5 flex flex-wrap gap-1.5">
+                  {sphere.klasifikasi.map((k) => (
+                    <span
+                      key={k.id}
+                      className="rounded-full bg-brand-50 px-2.5 py-0.5 text-[0.68rem] font-bold text-brand-700"
+                    >
+                      {k.nama}
+                    </span>
+                  ))}
+                </div>
+              </div>
+              <button
+                type="button"
+                aria-label={`Hapus ${sphere.nama}`}
+                onClick={async () => {
+                  if (!confirm(`Hapus sphere "${sphere.nama}"?`)) return;
+                  await api.admin.spheres.remove(sphere.id);
+                  reload();
+                }}
+                className="grid h-10 w-10 shrink-0 place-items-center rounded-lg border border-red-100 text-red-500 transition hover:bg-red-50"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
             </div>
           </li>
         ))}

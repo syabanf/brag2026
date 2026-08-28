@@ -170,11 +170,12 @@ badge write can never roll back the verification that earned it.
 
 ## Screens
 
-Member — dashboard, leaderboard (plus a public, link-shareable one), submit,
-booster, awards, prize pool, activity feed, history, profile.
+Member — dashboard, leaderboard (plus a public, link-shareable one), submit
+(TYFCB, visitor, 1-2-1), booster, awards, prize pool, activity feed, history,
+profile. A notification bell in the header surfaces recent activity.
 Captain — files TYFCB and visitors for their team, resets team passwords.
 Admin — TYFCB verification, visitors, members, teams, classifications,
-boosters, weekly events, scoring passes and the prize pool.
+boosters, weekly events, contact spheres, scoring passes and the prize pool.
 
 A guided tour sits behind the compass button in the header. Its nine steps and
 their narration come from the API, so caption and voice cannot drift.

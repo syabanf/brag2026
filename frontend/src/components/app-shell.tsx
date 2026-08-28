@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "../lib/use-auth";
 import { QuickTour, TourButton } from "./quick-tour";
+import { NotificationBell } from "./notification-bell";
 import { initials } from "../lib/format";
 
 const navItems = [
@@ -46,6 +47,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
         <div className="relative flex shrink-0 items-center gap-2">
           <TourButton />
+          <NotificationBell />
 
           {(user?.role === "admin" || user?.role === "captain") && (
             <Link

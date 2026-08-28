@@ -4,10 +4,12 @@ import type {
   BoosterEvent,
   CaptainTeam,
   Classification,
+  ContactSphere,
   Dashboard,
   Leaderboard,
   LedgerEntry,
   Member,
+  OneToOne,
   EventBankEntry,
   PassResult,
   Prize,
@@ -152,6 +154,14 @@ export const api = {
     tickets: () => get<TicketSummary[]>("/raffle/tickets"),
   },
 
+  spheres: () => get<ContactSphere[]>("/spheres"),
+
+  oneToOne: {
+    list: (limit = 50) => get<OneToOne[]>(`/one-to-one?limit=${limit}`),
+    log: (member_id: string, tanggal: string, catatan?: string | null) =>
+      post<{ id: string }>("/one-to-one", { member_id, tanggal, catatan: catatan ?? null }),
+  },
+
   captain: {
     team: () => get<CaptainTeam>("/captain/team"),
     submitTyfcb: (member_id: string, buyer_id: string, nilai: number, tanggal: string) =>
@@ -227,6 +237,18 @@ export const api = {
     },
     raffle: {
       issue: () => post<TicketSummary[]>("/admin/raffle/issue"),
+    },
+    spheres: {
+      list: () => get<ContactSphere[]>("/admin/spheres"),
+      create: (nama: string, deskripsi: string | null, klasifikasi_ids: string[]) =>
+        post<{ id: string }>("/admin/spheres", { nama, deskripsi, klasifikasi_ids }),
+      setMembers: (id: string, klasifikasi_ids: string[]) =>
+        patch<{ ok: boolean }>(`/admin/spheres/${id}/members`, { klasifikasi_ids }),
+      remove: (id: string) => del<{ ok: boolean }>(`/admin/spheres/${id}`),
+    },
+    oneToOne: {
+      listAll: (limit = 100) => get<OneToOne[]>(`/one-to-one?all=true&limit=${limit}`),
+      remove: (id: string) => del<{ ok: boolean }>(`/admin/one-to-one/${id}`),
     },
   },
 };
