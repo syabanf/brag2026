@@ -1,10 +1,17 @@
-.next
 node_modules
-.env.local
-.env.*.local
 dist
 coverage
-*.tsbuildinfo
+
+# Local overrides; each service ships a .env.example.
+.env
+.env.local
+.env.*.local
+
+# Go
+*.test
+/bin/
+
+.DS_Store
 brag_dev_backup.sql
 *.dump
 *.sql.gz

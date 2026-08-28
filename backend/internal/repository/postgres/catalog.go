@@ -301,3 +301,45 @@ var (
 	_ domain.BoosterRepository        = (*BoosterRepo)(nil)
 	_ domain.BadgeRepository          = (*BadgeRepo)(nil)
 )
+
+// Stats gathers every fact the badge rules need in one round trip. Each
+// subquery is independent, so this stays a single scan per source table
+// rather than a fan-out of calls from the use case.
+func (r *BadgeRepo) Stats(ctx context.Context, memberID, seasonID string) (domain.BadgeStats, error) {
+	var s domain.BadgeStats
+
+	err := r.db.q(ctx).QueryRow(ctx, `
+		select
+		  (select count(*)::int from tyfcb_entries
+		     where giver_id = $1 and season_id = $2 and status = 'verified'),
+		  (select count(distinct receiver_id)::int from tyfcb_entries
+		     where giver_id = $1 and season_id = $2 and status = 'verified'),
+		  (select coalesce(max(nilai), 0)::float8 from tyfcb_entries
+		     where giver_id = $1 and season_id = $2 and status = 'verified'),
+		  (select coalesce(sum(points), 0)::int from score_ledger
+		     where member_id = $1 and season_id = $2),
+		  (select count(*)::int from visitors
+		     where inviter_id = $1 and season_id = $2 and is_void = false
+		       and status_hadir in ('hadir', 'hadir_penuh')),
+		  (select count(*)::int from visitors
+		     where inviter_id = $1 and season_id = $2 and is_void = false
+		       and status_hadir = 'hadir_penuh'),
+		  (select count(*)::int from visitors
+		     where inviter_id = $1 and season_id = $2 and is_void = false and is_converted),
+		  (select count(distinct created_at::date)::int from score_ledger
+		     where member_id = $1 and season_id = $2 and points > 0),
+		  (select exists (select 1 from members
+		     where id = $1 and color_status <> 'merah'))
+	`, memberID, seasonID).Scan(
+		&s.VerifiedTyfcbCount, &s.DistinctReceivers, &s.LargestTyfcb,
+		&s.ScoreOverall, &s.VisitorsHadir, &s.VisitorsHadirPenuh,
+		&s.Conversions, &s.DistinctScoringDays, &s.ColorStatusRaised,
+	)
+	if err != nil {
+		return domain.BadgeStats{}, err
+	}
+
+	// TEAM_PLAYER needs the weekly Full Roster pass and PATRON needs the prize
+	// pool; neither exists yet, so both stay false rather than being guessed.
+	return s, nil
+}

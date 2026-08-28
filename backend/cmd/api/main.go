@@ -55,12 +55,14 @@ func main() {
 	ledger := postgres.NewLedgerRepo(db)
 	boosters := postgres.NewBoosterRepo(db)
 	badges := postgres.NewBadgeRepo(db)
+	events := postgres.NewWeeklyEventRepo(db)
 
 	// Use cases (application layer).
+	badgeUC := usecase.NewBadges(badges)
 	authUC := usecase.NewAuth(users, sessions)
 	memberUC := usecase.NewMember(members, users, teams, classes, seasons, db)
-	tyfcbUC := usecase.NewTyfcb(tyfcbRepo, members, ledger, seasons, db)
-	visitorUC := usecase.NewVisitor(visitorRepo, members, ledger, db)
+	tyfcbUC := usecase.NewTyfcb(tyfcbRepo, members, ledger, seasons, events, badgeUC, db)
+	visitorUC := usecase.NewVisitor(visitorRepo, members, ledger, events, badgeUC, db)
 	catalogUC := usecase.NewCatalog(teams, classes, boosters, seasons)
 	leaderboardUC := usecase.NewLeaderboard(ledger, members, tyfcbRepo, visitorRepo, boosters, badges, seasons)
 

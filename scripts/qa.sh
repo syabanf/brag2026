@@ -1,28 +1,20 @@
 #!/usr/bin/env bash
-# QA gate — lint + typecheck
+# Static checks for both services. Fails on the first problem.
 set -euo pipefail
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$SCRIPT_DIR/_agentic_lib.sh"
 
-cd "$PROJECT_ROOT"
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-echo "=== QA Gate ==="
+echo "── backend ──────────────────────────────────────────"
+cd "$root/backend"
+gofmt -l . | tee /tmp/brag-gofmt
+[ ! -s /tmp/brag-gofmt ] || { echo "FAIL: files above need gofmt"; exit 1; }
+go vet ./...
+echo "  vet + fmt OK"
 
-echo "→ Running ESLint..."
-if npm run lint -- --max-warnings=0; then
-  log_gate "lint" "PASS"
-else
-  log_gate "lint" "FAIL"
-  exit 1
-fi
+echo "── frontend ─────────────────────────────────────────"
+cd "$root/frontend"
+npx tsc --noEmit
+npm run --silent lint
+echo "  typecheck + lint OK"
 
-echo "→ Running TypeScript check..."
-if npm run typecheck; then
-  log_gate "typecheck" "PASS"
-else
-  log_gate "typecheck" "FAIL"
-  exit 1
-fi
-
-log_gate "QA" "PASS"
-echo "=== QA Gate PASS ==="
+echo "=== QA gate PASS ==="

@@ -10,24 +10,26 @@
 
 | Key | Value |
 |-----|-------|
-| Type | Single Next.js app |
-| Package manager | npm |
-| Framework | Next.js App Router + TypeScript |
-| Database | PostgreSQL — local dev via `pg` client |
-| Auth | Local bcrypt + cookie session (`src/lib/local-auth.ts`) |
-| Styling | Tailwind CSS + glassmorphism, BNI red brand |
-| Page pattern | `src/app/**/page.tsx` |
-| Shared types | `src/lib/domain/types.ts` |
-| DB client | `src/lib/db.ts` |
+| Type | Monorepo: Go API + Vite SPA |
+| Backend | Go 1.26, clean architecture, chi + pgx |
+| Frontend | Vite + React + TypeScript + Tailwind |
+| Database | PostgreSQL 17 |
+| Auth | bcrypt + HttpOnly session cookie |
+| Styling | Tailwind, DM Sans, BNI red `#C8102E` |
 | Integration branch | `main` |
 
+**Layering (backend):** dependencies point inwards. `domain` imports nothing
+from the other layers; `usecase` depends only on `domain`; `repository` and
+`delivery` are interchangeable outer adapters. `cmd/api` is the composition
+root and the only place that knows every concrete type.
+
 **Protected paths** (require explicit approval before editing):
-- `db/local/` — schema migrations
-- `.env.local`, `.env` — never commit
+- `backend/migrations/` — schema; applied by compose on first boot
+- `.env` files — never commit; each service ships a `.env.example`
 
 ## Domain Model (Spec v1.0)
 
-**Roles:** `member` | `admin` (Growth Coordinator — satu-satunya approver)
+**Roles:** `member` | `captain` (input atas nama tim) | `admin` (Growth Coordinator — satu-satunya approver)
 
 **Core tables:**
 - `members` — competition profile (user_id, team_id, klasifikasi_id, color_status: merah|kuning|hijau)
@@ -73,17 +75,16 @@ L3 ESCALATE  → Human judgment for ambiguity, conflicts, or retry exhaustion (3
 ```
 
 **Gate scripts:**
-- `scripts/qa.sh` — ESLint + TypeScript check
-- `scripts/test.sh` — Next.js build
-- `scripts/security-check.sh` — Secrets scan + npm audit
-- `scripts/deploy-dev.sh` — DEV-only build + health check
+- `scripts/qa.sh` — gofmt + go vet + tsc + oxlint
+- `scripts/test.sh` — go test + both production builds
+- `scripts/security-check.sh` — tracked-secret scan + dependency audit
 
 **Guardrails (always enforced):**
 - No `git push --force` to any branch
 - No production deployments from autonomous runs
 - No SQL `DROP`, `TRUNCATE`, or unguarded `DELETE FROM` (without WHERE)
-- No hardcoded secrets — always use `process.env.*`
-- `point_events` table is insert-only in application code
+- No hardcoded secrets — Go reads `os.Getenv`, Vite reads `import.meta.env`
+- `score_ledger` is append-only; corrections are opposite-sign rows
 
 ---
 
@@ -96,7 +97,6 @@ L3 ESCALATE  → Human judgment for ambiguity, conflicts, or retry exhaustion (3
 | `review-qa-agent` | Checks change against acceptance criteria | QA gate |
 | `security-agent` | Runs security-check.sh + checks tenant guards | Security gate |
 | `test-agent` | Runs lint, typecheck, build | Test gate |
-| `deploy-agent` | Runs deploy-dev.sh; DEV only | Deploy gate |
 
 Prefer ECC/Ruflo pre-built agents for generic tasks. Custom agents above for BRAG-specific conventions only.
 
@@ -132,17 +132,17 @@ Every code decision is logged in the epic's **Automation Log**.
 ## Key Paths
 
 ```
-src/app/               Next.js pages (App Router)
-src/lib/domain/        Shared TypeScript types
-src/lib/db.ts          PostgreSQL client
-src/lib/local-auth.ts  Auth: sign-in, session, bcrypt
-src/lib/auth.ts        Session helpers and role checks
-src/components/        Shared React components
-db/local/              SQL migration files
-docs/product/          PRD, user stories, acceptance criteria, tasks
-docs/epics/            EPIC-XXX.md files (canonical work tracking)
-scripts/               Gate scripts (qa, test, security, deploy-dev)
-.agentic/config.yml    Project manifest
+backend/cmd/api/              composition root
+backend/internal/domain/      entities, scoring rules, repo interfaces, errors
+backend/internal/usecase/     application rules
+backend/internal/repository/  PostgreSQL adapters
+backend/internal/delivery/    HTTP handlers, routing, middleware
+backend/migrations/           schema
+frontend/src/lib/api.ts       the single typed contract to the API
+frontend/src/pages/           one file per screen
+frontend/src/components/      shared UI
+docs/product/PRD.md           scoring spec and the 12-event bank
+scripts/                      qa, test, security gates
 ```
 
 ---
@@ -151,11 +151,11 @@ scripts/               Gate scripts (qa, test, security, deploy-dev)
 
 **Allowed in autonomous runs:**
 - All local DB operations
-- `npm run dev`, `npm run build`, `npm run lint`, `npm run typecheck`
+- `go test`, `go build`, `npm run dev`, `npm run build`
 - Creating branches, commits, and PRs
 
 **Manual-only (never autonomous):**
-- Production Vercel deployments
-- Database schema migrations (`db/local/*.sql`)
-- Changing `.env.local` or any secret value
+- Production deployments
+- Database schema migrations (`backend/migrations/*.sql`)
+- Changing any `.env` file or secret value
 - Force-push to `main`

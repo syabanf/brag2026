@@ -3,6 +3,7 @@ package usecase
 import (
 	"context"
 	"fmt"
+	"math"
 	"strings"
 	"time"
 
@@ -13,6 +14,8 @@ type Visitor struct {
 	visitors domain.VisitorRepository
 	members  domain.MemberRepository
 	ledger   domain.LedgerRepository
+	events   domain.WeeklyEventRepository
+	badges   *Badges
 	tx       domain.TxManager
 }
 
@@ -20,9 +23,14 @@ func NewVisitor(
 	visitors domain.VisitorRepository,
 	members domain.MemberRepository,
 	ledger domain.LedgerRepository,
+	events domain.WeeklyEventRepository,
+	badges *Badges,
 	tx domain.TxManager,
 ) *Visitor {
-	return &Visitor{visitors: visitors, members: members, ledger: ledger, tx: tx}
+	return &Visitor{
+		visitors: visitors, members: members, ledger: ledger,
+		events: events, badges: badges, tx: tx,
+	}
 }
 
 type RegisterVisitorInput struct {
@@ -102,7 +110,14 @@ func (u *Visitor) Update(ctx context.Context, id string, in UpdateVisitorInput) 
 		teamID = inviter.TeamID
 	}
 
-	return u.tx.WithinTx(ctx, func(ctx context.Context) error {
+	// Milestones are credited when the admin confirms them, so the pengali is
+	// the one running today rather than on the invitation date.
+	event, err := u.events.ActiveOn(ctx, visitor.SeasonID, time.Now())
+	if err != nil {
+		return err
+	}
+
+	err = u.tx.WithinTx(ctx, func(ctx context.Context) error {
 		if in.StatusHadir != nil {
 			to := domain.VisitorStatus(*in.StatusHadir)
 			from := visitor.StatusHadir
@@ -118,7 +133,21 @@ func (u *Visitor) Update(ctx context.Context, id string, in UpdateVisitorInput) 
 					return domain.Conflict("Status visitor sudah berubah. Muat ulang halaman.")
 				}
 
-				if delta := domain.VisitorStatusDelta(from, to); delta != 0 {
+				delta := domain.VisitorStatusDelta(from, to)
+				if delta > 0 {
+					// Only awards are boosted; see the reversal branch below.
+					delta = applyMultiplier(delta, domain.VisitorMultiplier(event, false))
+				} else if delta < 0 {
+					// Reverse to the new base rather than recomputing at today's
+					// pengali, which may differ from the one that granted it.
+					credited, err := u.ledger.SumBySource(ctx, visitor.ID)
+					if err != nil {
+						return err
+					}
+					delta = domain.VisitorCumulative(to) - credited
+				}
+
+				if delta != 0 {
 					ref := visitor.ID
 					keterangan := fmt.Sprintf("Status visitor: %s → %s",
 						domain.VisitorStatusLabel(from), domain.VisitorStatusLabel(to))
@@ -149,13 +178,20 @@ func (u *Visitor) Update(ctx context.Context, id string, in UpdateVisitorInput) 
 				return domain.Conflict("Status konversi sudah berubah. Muat ulang halaman.")
 			}
 
-			points := domain.ConversionPoints
+			var points int
 			keterangan := "Visitor konversi"
-			if !to {
-				points = -points
+			if to {
+				points = applyMultiplier(domain.ConversionPoints, domain.VisitorMultiplier(event, true))
+			} else {
+				// Give back exactly what the conversion was worth when granted.
+				credited, err := u.ledger.SumBySource(ctx, conversionRef(visitor.ID))
+				if err != nil {
+					return err
+				}
+				points = -credited
 				keterangan = "Pembatalan konversi visitor"
 			}
-			ref := visitor.ID
+			ref := conversionRef(visitor.ID)
 
 			if err := u.ledger.Append(ctx, &domain.LedgerEntry{
 				SeasonID:   visitor.SeasonID,
@@ -172,6 +208,25 @@ func (u *Visitor) Update(ctx context.Context, id string, in UpdateVisitorInput) 
 
 		return nil
 	})
+	if err != nil {
+		return err
+	}
+
+	u.badges.EvaluateQuietly(ctx, visitor.InviterID, visitor.SeasonID)
+	return nil
+}
+
+// conversionRef keys the conversion bonus separately from attendance
+// milestones, so correcting one never disturbs the other.
+func conversionRef(visitorID string) string { return visitorID + ":conversion" }
+
+// applyMultiplier scales a point delta and keeps the sign, so reversing a
+// boosted milestone gives back exactly what was awarded.
+func applyMultiplier(points int, multiplier float64) int {
+	if multiplier == 1 {
+		return points
+	}
+	return int(math.Round(float64(points) * multiplier))
 }
 
 // Void cancels a visitor and reverses every point it has earned so far,
@@ -197,10 +252,17 @@ func (u *Visitor) Void(ctx context.Context, id, actorID string) error {
 		teamID = inviter.TeamID
 	}
 
-	earned := domain.VisitorCumulative(visitor.StatusHadir)
-	if visitor.IsConverted {
-		earned += domain.ConversionPoints
+	// What the visitor actually earned, boosts included — recomputing from the
+	// status would under-refund anything credited during an event week.
+	attendance, err := u.ledger.SumBySource(ctx, visitor.ID)
+	if err != nil {
+		return err
 	}
+	conversion, err := u.ledger.SumBySource(ctx, conversionRef(visitor.ID))
+	if err != nil {
+		return err
+	}
+	earned := attendance + conversion
 
 	return u.tx.WithinTx(ctx, func(ctx context.Context) error {
 		if earned != 0 {

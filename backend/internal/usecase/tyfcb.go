@@ -12,6 +12,8 @@ type Tyfcb struct {
 	members domain.MemberRepository
 	ledger  domain.LedgerRepository
 	seasons domain.SeasonRepository
+	events  domain.WeeklyEventRepository
+	badges  *Badges
 	tx      domain.TxManager
 }
 
@@ -20,9 +22,14 @@ func NewTyfcb(
 	members domain.MemberRepository,
 	ledger domain.LedgerRepository,
 	seasons domain.SeasonRepository,
+	events domain.WeeklyEventRepository,
+	badges *Badges,
 	tx domain.TxManager,
 ) *Tyfcb {
-	return &Tyfcb{tyfcb: tyfcb, members: members, ledger: ledger, seasons: seasons, tx: tx}
+	return &Tyfcb{
+		tyfcb: tyfcb, members: members, ledger: ledger,
+		seasons: seasons, events: events, badges: badges, tx: tx,
+	}
 }
 
 type SubmitTyfcbInput struct {
@@ -67,9 +74,20 @@ func (u *Tyfcb) Submit(ctx context.Context, in SubmitTyfcbInput, submittedBy *st
 	}
 	pairOrdinal := prior + 1
 
-	const eventMultiplier = 1.0
-	score := domain.TyfcbScore(in.Nilai, pairOrdinal, eventMultiplier)
-	multiplier := eventMultiplier
+	// The pengali comes from whichever weekly event covers the transaction
+	// date; with no event scheduled the rule returns 1.
+	event, err := u.events.ActiveOn(ctx, seller.SeasonID, in.Tanggal)
+	if err != nil {
+		return nil, err
+	}
+
+	multiplier := domain.TyfcbMultiplier(event, domain.TyfcbContext{
+		Tanggal:                  in.Tanggal,
+		PairOrdinal:              pairOrdinal,
+		ReceiverClassificationID: seller.KlasifikasiID,
+		ReceiverColorStatus:      seller.ColorStatus,
+	})
+	score := domain.TyfcbScore(in.Nilai, pairOrdinal, multiplier)
 
 	entry := &domain.TyfcbEntry{
 		SeasonID:               seller.SeasonID,
@@ -123,7 +141,7 @@ func (u *Tyfcb) SetStatus(ctx context.Context, id string, next domain.TyfcbStatu
 	credits := entry.Status != domain.TyfcbVerified && next == domain.TyfcbVerified
 	reverses := entry.Status == domain.TyfcbVerified && next != domain.TyfcbVerified
 
-	return u.tx.WithinTx(ctx, func(ctx context.Context) error {
+	err = u.tx.WithinTx(ctx, func(ctx context.Context) error {
 		if entry.ComputedScore != nil && (credits || reverses) {
 			points := *entry.ComputedScore
 			keterangan := "TYFCB verified"
@@ -160,6 +178,14 @@ func (u *Tyfcb) SetStatus(ctx context.Context, id string, next domain.TyfcbStatu
 
 		return u.tyfcb.UpdateStatus(ctx, id, next, verifiedBy, verifiedAt)
 	})
+	if err != nil {
+		return err
+	}
+
+	// After the transaction commits, so a badge write can never roll back a
+	// verification.
+	u.badges.EvaluateQuietly(ctx, entry.GiverID, entry.SeasonID)
+	return nil
 }
 
 // Void cancels an entry outright, reversing any points it had earned.

@@ -101,6 +101,10 @@ type LedgerRepository interface {
 	MemberScores(ctx context.Context, seasonID string, limit int) ([]MemberScore, error)
 	MemberScore(ctx context.Context, memberID, seasonID string) (*MemberScore, error)
 	TeamHistory(ctx context.Context, teamID, seasonID, kategori string) ([]LedgerEntry, error)
+	// SumBySource totals what a single source row has already been credited.
+	// Reversals read this instead of recomputing, so a boosted award is always
+	// given back in full even if the boost is no longer running.
+	SumBySource(ctx context.Context, sumberRef string) (int, error)
 }
 
 type BoosterRepository interface {
@@ -114,7 +118,20 @@ type BoosterRepository interface {
 type BadgeRepository interface {
 	List(ctx context.Context) ([]Badge, error)
 	ListForMember(ctx context.Context, memberID string) ([]Badge, error)
+	// Award is idempotent, so the evaluator can re-offer a badge the member
+	// already holds without special-casing it.
 	Award(ctx context.Context, memberID, badgeCode string) error
+	// Stats gathers everything the badge rules need in one round trip.
+	Stats(ctx context.Context, memberID, seasonID string) (BadgeStats, error)
+}
+
+type WeeklyEventRepository interface {
+	// ActiveOn returns the event covering a date, or nil when none is
+	// scheduled — the multiplier then stays at 1.
+	ActiveOn(ctx context.Context, seasonID string, day time.Time) (*WeeklyEvent, error)
+	ListBySeason(ctx context.Context, seasonID string) ([]WeeklyEvent, error)
+	Upsert(ctx context.Context, e *WeeklyEvent) (string, error)
+	Delete(ctx context.Context, id string) error
 }
 
 // TxManager lets a use case make several repository calls atomic without

@@ -169,4 +169,12 @@ func (r *LedgerRepo) TeamHistory(ctx context.Context, teamID, seasonID, kategori
 	return out, rows.Err()
 }
 
+func (r *LedgerRepo) SumBySource(ctx context.Context, sumberRef string) (int, error) {
+	var total int
+	err := r.db.q(ctx).QueryRow(ctx,
+		`select coalesce(sum(points), 0)::int from score_ledger where sumber_ref = $1`,
+		sumberRef).Scan(&total)
+	return total, err
+}
+
 var _ domain.LedgerRepository = (*LedgerRepo)(nil)
