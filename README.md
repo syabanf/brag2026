@@ -85,6 +85,65 @@ ElevenLabs audio on a free plan, switch to a premade voice:
 ELEVENLABS_VOICE_ID=EXAVITQu4vr4xnSDxMaL   # Sarah — neutral, clear
 ```
 
+## The Vite + Go rewrite
+
+`backend/` and `frontend/` are a ground-up rewrite of the same product: a Go
+API in clean architecture behind a Vite React SPA, both on PostgreSQL. The
+Next.js app in `src/` is kept alongside as a working reference until the
+rewrite fully replaces it.
+
+```bash
+docker compose -f docker-compose.rewrite.yml up --build
+```
+
+Frontend on http://localhost:5173, API on http://localhost:8081. Ports are
+configurable with `WEB_PORT`, `API_PORT` and `DB_PORT`; the stack runs under
+its own `brag-rewrite` compose project, so it never collides with the Next.js
+one.
+
+### Backend layout
+
+Dependencies point inwards — the domain knows nothing about SQL or HTTP:
+
+```
+backend/
+  cmd/api/              composition root; the only place that knows every type
+  internal/domain/      entities, scoring rules, repository interfaces, errors
+  internal/usecase/     application rules, orchestrating domain + repositories
+  internal/repository/  PostgreSQL adapters implementing the domain interfaces
+  internal/delivery/    HTTP handlers, routing, middleware
+  migrations/           schema, applied by compose on first boot
+```
+
+The scoring rules live in `internal/domain/scoring.go` as pure functions and
+are pinned by `scoring_test.go`:
+
+```bash
+cd backend && go test ./...
+```
+
+- **TYFCB** — `round(Band × 1/pair_ordinal × event multiplier)`. Bands step
+  from 10 points below Rp 500k to 200 points at Rp 500M and above.
+- **Visitor** — cumulative, not incremental: 0 registered, 20 attended, 50
+  fully attended, plus 100 on conversion. A status change awards the
+  *difference*, so correcting a mistake reverses exactly what was given.
+- **`score_ledger` is append-only.** Reversals are new rows with the opposite
+  sign, which keeps the audit trail intact and makes every score reproducible
+  from the ledger alone.
+
+Ledger writes and status changes share a transaction, so a partial failure
+cannot skew a leaderboard.
+
+### Running the two halves separately
+
+```bash
+cd backend && cp .env.example .env && go run ./cmd/api    # :8080
+cd frontend && npm install && npm run dev                  # :5173
+```
+
+The frontend reads `VITE_API_URL` (see `frontend/.env`). Vite inlines it at
+build time, so in Docker it is a build argument rather than a runtime variable.
+
 ## Docker
 
 The image is self-contained: demo mode needs no database at all, and the
