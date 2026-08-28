@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"context"
+	"strconv"
 	"time"
 
 	"github.com/ikurniawann/brag2026/backend/internal/domain"
@@ -125,7 +126,7 @@ func (r *OneToOneRepo) List(ctx context.Context, seasonID, memberID string, limi
 		sql += ` and (o.member_a = $2 or o.member_b = $2)`
 	}
 	args = append(args, limit)
-	sql += ` order by o.tanggal desc, o.created_at desc limit $` + itoa(len(args))
+	sql += ` order by o.tanggal desc, o.created_at desc limit $` + strconv.Itoa(len(args))
 
 	rows, err := r.db.q(ctx).Query(ctx, sql, args...)
 	if err != nil {

@@ -59,6 +59,26 @@ func (u *Member) List(ctx context.Context) ([]domain.Member, error) {
 	return u.members.ListBySeason(ctx, season.ID)
 }
 
+// ListPaged is what the admin roster uses: filtered, and one page at a time.
+func (u *Member) ListPaged(ctx context.Context, f domain.MemberFilter) (domain.Paged[domain.Member], error) {
+	season, err := u.seasons.FindActive(ctx)
+	if err != nil {
+		return domain.Paged[domain.Member]{}, err
+	}
+	if season == nil {
+		return domain.Paged[domain.Member]{}, domain.NotFound("Season aktif tidak ditemukan.")
+	}
+
+	f.SeasonID = season.ID
+	f.Page = f.Page.Normalise()
+
+	members, total, err := u.members.ListFiltered(ctx, f)
+	if err != nil {
+		return domain.Paged[domain.Member]{}, err
+	}
+	return domain.NewPaged(members, total, f.Page), nil
+}
+
 func (u *Member) ListByTeam(ctx context.Context, teamID string) ([]domain.Member, error) {
 	return u.members.ListByTeam(ctx, teamID)
 }

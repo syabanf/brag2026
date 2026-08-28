@@ -140,3 +140,46 @@ func (r *MemberRepo) CountBySeason(ctx context.Context, seasonID string) (int, e
 }
 
 var _ domain.MemberRepository = (*MemberRepo)(nil)
+
+// memberFilterClause is shared by the page query and its count, so the two can
+// never disagree about what is being filtered.
+func memberFilterClause(f domain.MemberFilter) *clause {
+	c := &clause{}
+	c.addIf("m.season_id = ", f.SeasonID)
+	c.addIf("m.team_id = ", f.TeamID)
+	c.addIf("u.role::text = ", f.Role)
+	c.addIf("m.color_status::text = ", f.ColorStatus)
+	if f.IsActive != nil {
+		c.add("m.is_active = ", *f.IsActive)
+	}
+	c.addSearch(f.Search, "u.full_name", "u.email")
+	return c
+}
+
+// ListFiltered returns one page of the roster plus the total that matches the
+// same filter, so the caller can render "showing 25 of 180".
+func (r *MemberRepo) ListFiltered(ctx context.Context, f domain.MemberFilter) ([]domain.Member, int, error) {
+	c := memberFilterClause(f)
+
+	var total int
+	if err := r.db.q(ctx).QueryRow(ctx,
+		`select count(*)::int from members m join app_users u on u.id = m.user_id`+c.sql(),
+		c.args...,
+	).Scan(&total); err != nil {
+		return nil, 0, err
+	}
+
+	page := f.Page.Normalise()
+	tail, args := c.paginate(page.Limit, page.Offset)
+
+	rows, err := r.db.q(ctx).Query(ctx,
+		`select `+memberColumns+memberFrom+c.sql()+`
+		 order by nullif(regexp_replace(coalesce(t.nama_tim, ''), '\D', '', 'g'), '')::int nulls last,
+		          u.full_name`+tail, args...)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	members, err := collectMembers(rows)
+	return members, total, err
+}

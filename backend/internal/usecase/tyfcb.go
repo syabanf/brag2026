@@ -250,6 +250,16 @@ func (u *Tyfcb) List(ctx context.Context, f domain.TyfcbFilter) ([]domain.TyfcbE
 	return u.tyfcb.List(ctx, f)
 }
 
+func (u *Tyfcb) ListPaged(ctx context.Context, f domain.TyfcbFilter) (domain.Paged[domain.TyfcbEntry], error) {
+	f.Page = f.Page.Normalise()
+
+	entries, total, err := u.tyfcb.ListPaged(ctx, f)
+	if err != nil {
+		return domain.Paged[domain.TyfcbEntry]{}, err
+	}
+	return domain.NewPaged(entries, total, f.Page), nil
+}
+
 func (u *Tyfcb) CountByStatus(ctx context.Context, seasonID string) (map[string]int, error) {
 	return u.tyfcb.CountByStatus(ctx, seasonID)
 }

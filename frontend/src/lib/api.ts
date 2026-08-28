@@ -9,7 +9,9 @@ import type {
   Leaderboard,
   LedgerEntry,
   Member,
+  MemberQuery,
   OneToOne,
+  Paged,
   EventBankEntry,
   PassResult,
   Prize,
@@ -17,9 +19,12 @@ import type {
   TicketSummary,
   TourStep,
   TyfcbEntry,
+  TyfcbPage,
+  TyfcbQuery,
   WeeklyEvent,
   User,
   Visitor,
+  VisitorQuery,
 } from "./types";
 
 const BASE = import.meta.env.VITE_API_URL ?? "http://localhost:8080";
@@ -66,6 +71,16 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   }
 
   return payload as T;
+}
+
+/** Drops empty values so an unset filter never reaches the server. */
+function qs(params: Record<string, string | number | undefined>) {
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== "") search.set(key, String(value));
+  }
+  const rendered = search.toString();
+  return rendered ? `?${rendered}` : "";
 }
 
 const get = <T>(path: string) => request<T>(path);
@@ -176,7 +191,7 @@ export const api = {
 
   admin: {
     members: {
-      list: () => get<Member[]>("/admin/members"),
+      list: (query: MemberQuery = {}) => get<Paged<Member>>(`/admin/members${qs(query)}`),
       create: (body: Record<string, unknown>) => post<{ id: string }>("/admin/members", body),
       update: (id: string, body: Record<string, unknown>) =>
         patch<{ ok: boolean }>(`/admin/members/${id}`, body),
@@ -204,16 +219,12 @@ export const api = {
       remove: (id: string) => del<{ ok: boolean }>(`/admin/booster/${id}`),
     },
     tyfcb: {
-      list: (status?: string) =>
-        get<{ entries: TyfcbEntry[]; counts: Record<string, number> }>(
-          `/admin/tyfcb${status ? `?status=${status}` : ""}`,
-        ),
+      list: (query: TyfcbQuery = {}) => get<TyfcbPage>(`/admin/tyfcb${qs(query)}`),
       setStatus: (id: string, status: string) =>
         patch<{ ok: boolean }>(`/admin/tyfcb/${id}`, { status }),
     },
     visitors: {
-      list: (status?: string) =>
-        get<Visitor[]>(`/admin/visitors${status ? `?status=${status}` : ""}`),
+      list: (query: VisitorQuery = {}) => get<Paged<Visitor>>(`/admin/visitors${qs(query)}`),
       update: (id: string, body: { status_hadir?: string; is_converted?: boolean }) =>
         patch<{ ok: boolean }>(`/admin/visitors/${id}`, body),
     },

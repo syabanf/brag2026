@@ -5,6 +5,7 @@ import { toast } from "../lib/toast-store";
 import { useApi } from "../lib/use-api";
 import { formatCurrency, formatDate } from "../lib/format";
 import { Badge, EmptyState, ErrorNote, PageHeader, Spinner, Tabs } from "../components/ui";
+import { FilterBar, FilterSelect, Pagination, SearchField } from "../components/list-controls";
 import type { Member, Visitor } from "../lib/types";
 
 // ── TYFCB verification ────────────────────────────────────────────────────
@@ -14,7 +15,22 @@ type TyfcbTab = "pending" | "" | "verified" | "rejected";
 export function AdminTyfcbPage() {
   const [tab, setTab] = useState<TyfcbTab>("pending");
   const [busy, setBusy] = useState<string | null>(null);
-  const { data, error, loading, reload } = useApi(() => api.admin.tyfcb.list(tab), [tab]);
+  const [search, setSearch] = useState("");
+  const [teamID, setTeamID] = useState("");
+  const [offset, setOffset] = useState(0);
+
+  const { data: meta } = useApi(() => api.admin.teams.meta());
+  const { data, error, loading, reload } = useApi(
+    () => api.admin.tyfcb.list({ status: tab, q: search, team_id: teamID, offset }),
+    [tab, search, teamID, offset],
+  );
+
+  // Any filter change invalidates the current offset — page 3 of the old
+  // result set is meaningless against the new one.
+  function refine(apply: () => void) {
+    apply();
+    setOffset(0);
+  }
 
   async function setStatus(id: string, status: string) {
     setBusy(id + status);
@@ -46,12 +62,28 @@ export function AdminTyfcbPage() {
           { key: "rejected" as TyfcbTab, label: `Rejected (${counts.rejected ?? 0})` },
         ]}
         active={tab}
-        onChange={setTab}
+        onChange={(next) => refine(() => setTab(next))}
       />
+
+      <FilterBar>
+        <SearchField
+          value={search}
+          onChange={(next) => refine(() => setSearch(next))}
+          placeholder="Cari nama pembeli atau penjual…"
+        />
+        <FilterSelect
+          label="Semua tim"
+          value={teamID}
+          onChange={(next) => refine(() => setTeamID(next))}
+          options={(meta?.teams ?? []).map((t) => ({ value: t.id, label: t.nama_tim }))}
+        />
+      </FilterBar>
 
       {loading && <Spinner />}
       {error && <ErrorNote message={error} onRetry={reload} />}
-      {data && data.entries.length === 0 && <EmptyState message="Tidak ada submission." />}
+      {data && data.entries.length === 0 && (
+        <EmptyState message="Tidak ada submission yang cocok." />
+      )}
 
       <div className="space-y-2.5">
         {data?.entries.map((entry) => (
@@ -116,6 +148,15 @@ export function AdminTyfcbPage() {
           </div>
         ))}
       </div>
+
+      {data && (
+        <Pagination
+          total={data.total}
+          limit={data.limit}
+          offset={data.offset}
+          onChange={setOffset}
+        />
+      )}
     </div>
   );
 }
@@ -151,7 +192,19 @@ function ActionButton({
 export function AdminVisitorsPage() {
   const [tab, setTab] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
-  const { data, error, loading, reload } = useApi(() => api.admin.visitors.list(tab), [tab]);
+  const [search, setSearch] = useState("");
+  const [converted, setConverted] = useState("");
+  const [offset, setOffset] = useState(0);
+
+  const { data, error, loading, reload } = useApi(
+    () => api.admin.visitors.list({ status: tab, q: search, converted, offset }),
+    [tab, search, converted, offset],
+  );
+
+  function refine(apply: () => void) {
+    apply();
+    setOffset(0);
+  }
 
   async function update(id: string, body: { status_hadir?: string; is_converted?: boolean }) {
     setBusy(id);
@@ -181,15 +234,34 @@ export function AdminVisitorsPage() {
           { key: "hadir_penuh", label: "Hadir Penuh" },
         ]}
         active={tab}
-        onChange={setTab}
+        onChange={(next) => refine(() => setTab(next))}
       />
+
+      <FilterBar>
+        <SearchField
+          value={search}
+          onChange={(next) => refine(() => setSearch(next))}
+          placeholder="Cari nama tamu, kontak, atau pengundang…"
+        />
+        <FilterSelect
+          label="Semua konversi"
+          value={converted}
+          onChange={(next) => refine(() => setConverted(next))}
+          options={[
+            { value: "true", label: "Sudah konversi" },
+            { value: "false", label: "Belum konversi" },
+          ]}
+        />
+      </FilterBar>
 
       {loading && <Spinner />}
       {error && <ErrorNote message={error} onRetry={reload} />}
-      {data && data.length === 0 && <EmptyState message="Belum ada visitor." />}
+      {data && data.items.length === 0 && (
+        <EmptyState message="Tidak ada visitor yang cocok." />
+      )}
 
       <div className="space-y-2.5">
-        {data?.map((visitor) => (
+        {data?.items.map((visitor) => (
           <VisitorRow
             key={visitor.id}
             visitor={visitor}
@@ -198,6 +270,15 @@ export function AdminVisitorsPage() {
           />
         ))}
       </div>
+
+      {data && (
+        <Pagination
+          total={data.total}
+          limit={data.limit}
+          offset={data.offset}
+          onChange={setOffset}
+        />
+      )}
     </div>
   );
 }
@@ -261,18 +342,32 @@ function VisitorRow({
 export function AdminMembersPage() {
   const [editing, setEditing] = useState<Member | null>(null);
   const [creating, setCreating] = useState(false);
+  const [search, setSearch] = useState("");
+  const [teamID, setTeamID] = useState("");
+  const [role, setRole] = useState("");
+  const [offset, setOffset] = useState(0);
 
-  const { data, error, loading, reload } = useApi(() => api.admin.members.list());
   const { data: meta } = useApi(() => api.admin.teams.meta());
+  const { data, error, loading, reload } = useApi(
+    () => api.admin.members.list({ q: search, team_id: teamID, role, offset }),
+    [search, teamID, role, offset],
+  );
 
-  const grouped = groupByTeam(data ?? []);
+  function refine(apply: () => void) {
+    apply();
+    setOffset(0);
+  }
+
+  // Grouping happens within the page, so headings describe what is on screen
+  // rather than implying the whole roster is loaded.
+  const grouped = groupByTeam(data?.items ?? []);
 
   return (
     <div className="space-y-5">
       <PageHeader
         eyebrow="Admin Area"
         title="Kelola Member"
-        description={`${data?.length ?? 0} member terdaftar di season ini.`}
+        description={`${data?.total ?? 0} member terdaftar di season ini.`}
         action={
           <button type="button" onClick={() => setCreating(true)} className="btn-primary shrink-0">
             <Plus className="h-4 w-4" />
@@ -281,8 +376,35 @@ export function AdminMembersPage() {
         }
       />
 
+      <FilterBar>
+        <SearchField
+          value={search}
+          onChange={(next) => refine(() => setSearch(next))}
+          placeholder="Cari nama atau email…"
+        />
+        <FilterSelect
+          label="Semua tim"
+          value={teamID}
+          onChange={(next) => refine(() => setTeamID(next))}
+          options={(meta?.teams ?? []).map((t) => ({ value: t.id, label: t.nama_tim }))}
+        />
+        <FilterSelect
+          label="Semua role"
+          value={role}
+          onChange={(next) => refine(() => setRole(next))}
+          options={[
+            { value: "member", label: "Member" },
+            { value: "captain", label: "Kapten" },
+            { value: "admin", label: "Admin" },
+          ]}
+        />
+      </FilterBar>
+
       {loading && <Spinner />}
       {error && <ErrorNote message={error} onRetry={reload} />}
+      {data && data.items.length === 0 && (
+        <EmptyState message="Tidak ada member yang cocok." />
+      )}
 
       {grouped.map(([teamName, members]) => (
         <section key={teamName} className="card overflow-hidden">
@@ -336,6 +458,15 @@ export function AdminMembersPage() {
           </div>
         </section>
       ))}
+
+      {data && (
+        <Pagination
+          total={data.total}
+          limit={data.limit}
+          offset={data.offset}
+          onChange={setOffset}
+        />
+      )}
 
       {(editing || creating) && (
         <MemberDialog

@@ -288,3 +288,13 @@ func (u *Visitor) Void(ctx context.Context, id, actorID string) error {
 func (u *Visitor) List(ctx context.Context, f domain.VisitorFilter) ([]domain.Visitor, error) {
 	return u.visitors.List(ctx, f)
 }
+
+func (u *Visitor) ListPaged(ctx context.Context, f domain.VisitorFilter) (domain.Paged[domain.Visitor], error) {
+	f.Page = f.Page.Normalise()
+
+	visitors, total, err := u.visitors.ListPaged(ctx, f)
+	if err != nil {
+		return domain.Paged[domain.Visitor]{}, err
+	}
+	return domain.NewPaged(visitors, total, f.Page), nil
+}

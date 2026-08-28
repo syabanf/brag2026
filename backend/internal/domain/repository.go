@@ -36,6 +36,8 @@ type MemberRepository interface {
 	FindByUserAndSeason(ctx context.Context, userID, seasonID string) (*Member, error)
 	FindByID(ctx context.Context, id string) (*Member, error)
 	ListBySeason(ctx context.Context, seasonID string) ([]Member, error)
+	// ListFiltered is the paged, filtered roster the admin screen uses.
+	ListFiltered(ctx context.Context, f MemberFilter) ([]Member, int, error)
 	ListByTeam(ctx context.Context, teamID string) ([]Member, error)
 	Search(ctx context.Context, seasonID, term string, limit int) ([]Member, error)
 	Create(ctx context.Context, m *Member) (string, error)
@@ -65,12 +67,19 @@ type TyfcbFilter struct {
 	GiverID    string
 	ReceiverID string
 	TeamID     string
-	Limit      int
+	// Search matches either party's name, so an admin can find an entry
+	// without knowing which side filed it.
+	Search   string
+	DateFrom *time.Time
+	DateTo   *time.Time
+	Limit    int
+	Page     Page
 }
 
 type TyfcbRepository interface {
 	FindByID(ctx context.Context, id string) (*TyfcbEntry, error)
 	List(ctx context.Context, f TyfcbFilter) ([]TyfcbEntry, error)
+	ListPaged(ctx context.Context, f TyfcbFilter) ([]TyfcbEntry, int, error)
 	CountPair(ctx context.Context, giverID, receiverID, seasonID string) (int, error)
 	Create(ctx context.Context, e *TyfcbEntry, submittedBy *string) (string, error)
 	UpdateStatus(ctx context.Context, id string, status TyfcbStatus, verifiedBy *string, verifiedAt *time.Time) error
@@ -83,12 +92,29 @@ type VisitorFilter struct {
 	Status    string
 	InviterID string
 	TeamID    string
+	// Search matches the guest name, their contact, or the inviter.
+	Search    string
+	Converted *bool
 	Limit     int
+	Page      Page
+}
+
+// MemberFilter narrows the admin roster, which is the longest list in the app.
+type MemberFilter struct {
+	SeasonID    string
+	TeamID      string
+	Role        string
+	ColorStatus string
+	IsActive    *bool
+	// Search matches name or email.
+	Search string
+	Page   Page
 }
 
 type VisitorRepository interface {
 	FindByID(ctx context.Context, id string) (*Visitor, error)
 	List(ctx context.Context, f VisitorFilter) ([]Visitor, error)
+	ListPaged(ctx context.Context, f VisitorFilter) ([]Visitor, int, error)
 	Create(ctx context.Context, v *Visitor, submittedBy *string) (string, error)
 	// UpdateStatusGuarded only succeeds when the row still holds `from`, which
 	// keeps concurrent updates from awarding points twice.

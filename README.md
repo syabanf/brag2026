@@ -180,6 +180,23 @@ boosters, weekly events, contact spheres, scoring passes and the prize pool.
 A guided tour sits behind the compass button in the header. Its nine steps and
 their narration come from the API, so caption and voice cannot drift.
 
+## Listing endpoints
+
+Admin lists are paged and filtered server-side. `?limit=` and `?offset=` (or
+`?page=`) window the result; the response carries `total` so a screen can show
+"1–25 of 180" and know whether another page follows. Page size defaults to 25
+and is capped at 200 — without a ceiling a caller can ask for every row and
+turn a list into a denial of service.
+
+| Endpoint | Filters |
+|----------|---------|
+| `/admin/members` | `q` (name, email), `team_id`, `role`, `color_status`, `is_active` |
+| `/admin/tyfcb` | `q` (either party), `status`, `team_id`, `from`, `to` |
+| `/admin/visitors` | `q` (guest, contact, inviter), `status`, `team_id`, `converted` |
+
+Each filter is built by a shared clause builder that binds every value as a
+parameter, so a predicate can never be assembled by string concatenation.
+
 ## Hardening
 
 - Login is rate limited to ten attempts per minute per IP, and an unknown

@@ -45,6 +45,10 @@ func (f *fakeMembers) ListBySeason(context.Context, string) ([]domain.Member, er
 	return out, nil
 }
 func (f *fakeMembers) ListByTeam(context.Context, string) ([]domain.Member, error) { return nil, nil }
+func (f *fakeMembers) ListFiltered(ctx context.Context, _ domain.MemberFilter) ([]domain.Member, int, error) {
+	members, err := f.ListBySeason(ctx, "")
+	return members, len(members), err
+}
 func (f *fakeMembers) Search(context.Context, string, string, int) ([]domain.Member, error) {
 	return nil, nil
 }
@@ -107,6 +111,9 @@ func (f *fakeTyfcbRepo) FindByID(_ context.Context, id string) (*domain.TyfcbEnt
 func (f *fakeTyfcbRepo) List(context.Context, domain.TyfcbFilter) ([]domain.TyfcbEntry, error) {
 	return nil, nil
 }
+func (f *fakeTyfcbRepo) ListPaged(context.Context, domain.TyfcbFilter) ([]domain.TyfcbEntry, int, error) {
+	return nil, 0, nil
+}
 func (f *fakeTyfcbRepo) CountPair(context.Context, string, string, string) (int, error) {
 	return f.pairCount, nil
 }
@@ -142,6 +149,9 @@ func (f *fakeVisitorRepo) FindByID(_ context.Context, id string) (*domain.Visito
 }
 func (f *fakeVisitorRepo) List(context.Context, domain.VisitorFilter) ([]domain.Visitor, error) {
 	return nil, nil
+}
+func (f *fakeVisitorRepo) ListPaged(context.Context, domain.VisitorFilter) ([]domain.Visitor, int, error) {
+	return nil, 0, nil
 }
 func (f *fakeVisitorRepo) Create(context.Context, *domain.Visitor, *string) (string, error) {
 	return "visitor-new", nil

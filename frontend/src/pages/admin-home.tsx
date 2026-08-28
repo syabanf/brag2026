@@ -27,12 +27,13 @@ const sections = [
 
 export function AdminHomePage() {
   const { data, error, loading, reload } = useApi(() => api.dashboard());
-  const { data: pending } = useApi(() => api.admin.tyfcb.list("pending"));
+  // Only the total is needed, so one row is enough to fetch.
+  const { data: pending } = useApi(() => api.admin.tyfcb.list({ status: "pending", limit: 1 }));
 
   if (loading) return <Spinner />;
   if (error) return <ErrorNote message={error} onRetry={reload} />;
 
-  const pendingCount = pending?.entries.length ?? 0;
+  const pendingCount = pending?.total ?? 0;
 
   return (
     <div className="space-y-5">

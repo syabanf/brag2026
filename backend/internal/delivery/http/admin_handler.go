@@ -13,12 +13,22 @@ import (
 // ── Members ───────────────────────────────────────────────────────────────
 
 func (s *Server) handleListMembers(w http.ResponseWriter, r *http.Request) {
-	members, err := s.members.List(r.Context())
+	q := r.URL.Query()
+
+	paged, err := s.members.ListPaged(r.Context(), domain.MemberFilter{
+		TeamID:      q.Get("team_id"),
+		Role:        q.Get("role"),
+		ColorStatus: q.Get("color_status"),
+		IsActive:    boolParam(r, "is_active"),
+		Search:      searchParam(r),
+		Page:        pageFrom(r),
+	})
 	if err != nil {
 		fail(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, members)
+
+	writeJSON(w, http.StatusOK, paged)
 }
 
 func (s *Server) handleSearchMembers(w http.ResponseWriter, r *http.Request) {

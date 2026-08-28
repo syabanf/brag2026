@@ -243,3 +243,48 @@ export type OneToOne = {
   catatan: string | null;
   created_at: string;
 };
+
+/** Server-side page of a longer list. */
+export type Paged<T> = {
+  items: T[];
+  total: number;
+  limit: number;
+  offset: number;
+};
+
+export type TyfcbPage = {
+  entries: TyfcbEntry[];
+  total: number;
+  limit: number;
+  offset: number;
+  counts: Record<string, number>;
+};
+
+export type MemberQuery = {
+  q?: string;
+  team_id?: string;
+  role?: string;
+  color_status?: string;
+  is_active?: string;
+  limit?: number;
+  offset?: number;
+};
+
+export type TyfcbQuery = {
+  status?: string;
+  team_id?: string;
+  q?: string;
+  from?: string;
+  to?: string;
+  limit?: number;
+  offset?: number;
+};
+
+export type VisitorQuery = {
+  status?: string;
+  team_id?: string;
+  converted?: string;
+  q?: string;
+  limit?: number;
+  offset?: number;
+};

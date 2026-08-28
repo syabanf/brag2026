@@ -13,7 +13,9 @@ echo "  vet + fmt OK"
 
 echo "── frontend ─────────────────────────────────────────"
 cd "$root/frontend"
-npx tsc --noEmit
+# tsc -b, not --noEmit: with project references the plain form reads a
+# cached build and silently skips files.
+npx tsc -b --force
 npm run --silent lint
 echo "  typecheck + lint OK"
 

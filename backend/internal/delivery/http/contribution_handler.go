@@ -2,7 +2,6 @@ package http
 
 import (
 	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -114,30 +113,41 @@ func (s *Server) handleListTyfcb(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if season == nil {
-		writeJSON(w, http.StatusOK, []domain.TyfcbEntry{})
+		writeJSON(w, http.StatusOK, map[string]any{
+			"entries": []domain.TyfcbEntry{}, "total": 0, "counts": map[string]int{},
+		})
 		return
 	}
 
-	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
-
-	entries, err := s.tyfcb.List(r.Context(), domain.TyfcbFilter{
+	paged, err := s.tyfcb.ListPaged(r.Context(), domain.TyfcbFilter{
 		SeasonID: season.ID,
 		Status:   r.URL.Query().Get("status"),
 		TeamID:   r.URL.Query().Get("team_id"),
-		Limit:    limit,
+		Search:   searchParam(r),
+		DateFrom: dateParam(r, "from"),
+		DateTo:   dateParam(r, "to"),
+		Page:     pageFrom(r),
 	})
 	if err != nil {
 		fail(w, err)
 		return
 	}
 
+	// Counts cover the whole season, not the page, so the tab labels stay
+	// stable while an admin filters and pages through.
 	counts, err := s.tyfcb.CountByStatus(r.Context(), season.ID)
 	if err != nil {
 		fail(w, err)
 		return
 	}
 
-	writeJSON(w, http.StatusOK, map[string]any{"entries": entries, "counts": counts})
+	writeJSON(w, http.StatusOK, map[string]any{
+		"entries": paged.Items,
+		"total":   paged.Total,
+		"limit":   paged.Limit,
+		"offset":  paged.Offset,
+		"counts":  counts,
+	})
 }
 
 func (s *Server) handleSetTyfcbStatus(w http.ResponseWriter, r *http.Request) {
@@ -252,25 +262,25 @@ func (s *Server) handleListVisitors(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if season == nil {
-		writeJSON(w, http.StatusOK, []domain.Visitor{})
+		writeJSON(w, http.StatusOK, domain.NewPaged([]domain.Visitor{}, 0, pageFrom(r)))
 		return
 	}
 
-	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
-
-	visitors, err := s.visitors.List(r.Context(), domain.VisitorFilter{
+	paged, err := s.visitors.ListPaged(r.Context(), domain.VisitorFilter{
 		SeasonID:  season.ID,
 		Status:    r.URL.Query().Get("status"),
 		TeamID:    r.URL.Query().Get("team_id"),
 		InviterID: r.URL.Query().Get("inviter_id"),
-		Limit:     limit,
+		Converted: boolParam(r, "converted"),
+		Search:    searchParam(r),
+		Page:      pageFrom(r),
 	})
 	if err != nil {
 		fail(w, err)
 		return
 	}
 
-	writeJSON(w, http.StatusOK, visitors)
+	writeJSON(w, http.StatusOK, paged)
 }
 
 func (s *Server) handleUpdateVisitor(w http.ResponseWriter, r *http.Request) {

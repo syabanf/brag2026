@@ -2,7 +2,7 @@ package postgres
 
 import (
 	"context"
-	"strings"
+	"strconv"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -54,48 +54,27 @@ func (r *TyfcbRepo) FindByID(ctx context.Context, id string) (*domain.TyfcbEntry
 	return scanTyfcb(r.db.q(ctx).QueryRow(ctx, tyfcbSelect+` where te.id = $1 limit 1`, id))
 }
 
-// List builds the filter incrementally so callers only pay for the predicates
-// they actually set.
-func (r *TyfcbRepo) List(ctx context.Context, f domain.TyfcbFilter) ([]domain.TyfcbEntry, error) {
-	var (
-		where []string
-		args  []any
-	)
-	add := func(clause string, value any) {
-		args = append(args, value)
-		where = append(where, clause+"$"+itoa(len(args)))
+// tyfcbFilterClause is shared by the list, the paged list and the count, so
+// all three can never disagree about what is being filtered.
+func tyfcbFilterClause(f domain.TyfcbFilter) *clause {
+	c := &clause{}
+	c.addIf("te.season_id = ", f.SeasonID)
+	c.addIf("te.status::text = ", f.Status)
+	c.addIf("te.giver_id = ", f.GiverID)
+	c.addIf("te.receiver_id = ", f.ReceiverID)
+	c.addIf("gm.team_id = ", f.TeamID)
+	if f.DateFrom != nil {
+		c.add("te.tanggal >= ", *f.DateFrom)
 	}
+	if f.DateTo != nil {
+		c.add("te.tanggal <= ", *f.DateTo)
+	}
+	// Either side of the transaction, since an admin rarely knows who filed.
+	c.addSearch(f.Search, "gu.full_name", "ru.full_name")
+	return c
+}
 
-	if f.SeasonID != "" {
-		add("te.season_id = ", f.SeasonID)
-	}
-	if f.Status != "" {
-		add("te.status::text = ", f.Status)
-	}
-	if f.GiverID != "" {
-		add("te.giver_id = ", f.GiverID)
-	}
-	if f.ReceiverID != "" {
-		add("te.receiver_id = ", f.ReceiverID)
-	}
-	if f.TeamID != "" {
-		add("gm.team_id = ", f.TeamID)
-	}
-
-	sql := tyfcbSelect
-	if len(where) > 0 {
-		sql += " where " + strings.Join(where, " and ")
-	}
-	sql += " order by te.created_at desc"
-	if f.Limit > 0 {
-		args = append(args, f.Limit)
-		sql += " limit $" + itoa(len(args))
-	}
-
-	rows, err := r.db.q(ctx).Query(ctx, sql, args...)
-	if err != nil {
-		return nil, err
-	}
+func collectTyfcb(rows pgx.Rows) ([]domain.TyfcbEntry, error) {
 	defer rows.Close()
 
 	out := []domain.TyfcbEntry{}
@@ -117,6 +96,52 @@ func (r *TyfcbRepo) List(ctx context.Context, f domain.TyfcbFilter) ([]domain.Ty
 		out = append(out, e)
 	}
 	return out, rows.Err()
+}
+
+func (r *TyfcbRepo) List(ctx context.Context, f domain.TyfcbFilter) ([]domain.TyfcbEntry, error) {
+	c := tyfcbFilterClause(f)
+	sql := tyfcbSelect + c.sql() + " order by te.created_at desc"
+	args := c.args
+
+	if f.Limit > 0 {
+		args = append(args, f.Limit)
+		sql += " limit $" + strconv.Itoa(len(args))
+	}
+
+	rows, err := r.db.q(ctx).Query(ctx, sql, args...)
+	if err != nil {
+		return nil, err
+	}
+	return collectTyfcb(rows)
+}
+
+// ListPaged adds the total so the admin screen can page through verification
+// instead of loading every submission in the season.
+func (r *TyfcbRepo) ListPaged(ctx context.Context, f domain.TyfcbFilter) ([]domain.TyfcbEntry, int, error) {
+	c := tyfcbFilterClause(f)
+
+	var total int
+	if err := r.db.q(ctx).QueryRow(ctx, `
+		select count(*)::int
+		from tyfcb_entries te
+		left join members gm on gm.id = te.giver_id
+		left join app_users gu on gu.id = gm.user_id
+		left join members rm on rm.id = te.receiver_id
+		left join app_users ru on ru.id = rm.user_id`+c.sql(), c.args...).Scan(&total); err != nil {
+		return nil, 0, err
+	}
+
+	page := f.Page.Normalise()
+	tail, args := c.paginate(page.Limit, page.Offset)
+
+	rows, err := r.db.q(ctx).Query(ctx,
+		tyfcbSelect+c.sql()+" order by te.created_at desc"+tail, args...)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	entries, err := collectTyfcb(rows)
+	return entries, total, err
 }
 
 // CountPair drives the pair penalty: how many transactions this exact
