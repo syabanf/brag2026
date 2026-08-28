@@ -29,8 +29,30 @@ Frontend on http://localhost:5173, API on http://localhost:8081. PostgreSQL is
 initialised from `backend/migrations` the first time the volume is created.
 Ports are configurable with `WEB_PORT`, `API_PORT` and `DB_PORT`.
 
-Seeded accounts: superadmin `ilham@wit.id` / `admin123`, and 100 members as
-`m<team><member>@brag2026.id` (e.g. `m11@brag2026.id`) / `member123`.
+### Demo data
+
+The migrations create the roster but no activity, so the screens start empty.
+Load a season already in flight:
+
+```bash
+bash scripts/seed-demo.sh
+```
+
+That gives 180 TYFCB entries, 60 visitors, a populated ledger, all twelve
+weekly events, a prize pool with member donations, raffle tickets and earned
+badges. It is re-runnable — it clears its own rows first — and lives in
+`backend/seeds/` rather than `migrations/`, because it is sample content and
+must never run in production.
+
+Accounts (all seeded):
+
+| Email | Password | Role |
+|-------|----------|------|
+| `demo.admin@brag2026.id` | `demo123` | admin |
+| `demo.captain@brag2026.id` | `demo123` | captain |
+| `demo.member@brag2026.id` | `demo123` | member |
+| `ilham@wit.id` | `admin123` | admin |
+| `m<team><member>@brag2026.id` | `member123` | member |
 
 ### Without Docker
 
@@ -98,21 +120,54 @@ PRD's event bank are applied automatically:
 | `CLOSING_WEEK` | Conversion bonus ×2 |
 
 `POWER_TEAM` needs a contact sphere and `ONE_TO_ONE` needs 1-2-1 logs, neither
-of which the schema records. `HIGH_ROLLER` and `STREAK` are flat bonuses that
-need an end-of-day or end-of-week pass. All four leave the multiplier at 1
-rather than guessing.
+of which the schema records. `HIGH_ROLLER` and `STREAK` are flat bonuses rather than
+multipliers, settled by the passes below.
+
+`POWER_TEAM` and `ONE_TO_ONE` leave the multiplier at 1 rather than guessing.
+
+### Periodic bonuses
+
+Some bonuses depend on a whole day or week, so an admin settles them from
+**Event & Bonus**:
+
+| Bonus | Trigger | Value |
+|-------|---------|-------|
+| Full Roster | every active member of a team scored that week | team +100 |
+| Naik Level | admin raises a member's colour status | team +75 / +150 |
+| Streak Week | member scored on 3+ distinct days | +40 |
+| High Roller Day | largest single verified TYFCB of the day | +50 |
+
+Each pass is keyed by period, so re-running one is a no-op instead of a second
+payment.
+
+### Prize pool
+
+The committee seeds prizes and members donate for approval. Half the pool goes
+to leaderboard category winners, the rest is raffled. Tickets are
+`floor(score/100)` + one per attending visitor + one per first-time pair;
+issuing rewrites entitlements rather than appending, so the pass stays
+re-runnable without inflating anyone's odds.
 
 ### Badges
 
-Ten of the twelve badges are awarded automatically after any scoring change:
-First Blood, Tuan Rumah, Closer, Connector, Spreader, Centurion, Hat-trick,
-High Roller, Streak Master and Level Up. `TEAM_PLAYER` waits on the weekly
-Full Roster pass and `PATRON` on the prize pool; neither is implemented, so
-they stay unawarded rather than being approximated.
+All twelve badges are awarded automatically after any scoring change —
+`TEAM_PLAYER` when the member's team collects a Full Roster bonus, `PATRON`
+when an admin approves their donation to the prize pool.
 
 Evaluation re-derives every badge from a single stats query and awards what is
 missing. Awarding is idempotent, and it runs after the transaction commits so a
 badge write can never roll back the verification that earned it.
+
+## Screens
+
+Member — dashboard, leaderboard (plus a public, link-shareable one), submit,
+booster, awards, prize pool, activity feed, history, profile.
+Captain — files TYFCB and visitors for their team, resets team passwords.
+Admin — TYFCB verification, visitors, members, teams, classifications,
+boosters, weekly events, scoring passes and the prize pool.
+
+A guided tour sits behind the compass button in the header. Its nine steps and
+their narration come from the API, so caption and voice cannot drift.
 
 ## Gates
 

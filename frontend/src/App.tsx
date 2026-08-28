@@ -11,6 +11,9 @@ import { SubmitPage } from "./pages/submit";
 import { CaptainPage } from "./pages/captain";
 import { PrizesPage } from "./pages/prizes";
 import { AdminEventsPage } from "./pages/admin-events";
+import { AdminHomePage } from "./pages/admin-home";
+import { AdminBoosterPage } from "./pages/admin-booster";
+import { ActivityPage } from "./pages/activity";
 import {
   AdminClassificationsPage,
   AdminMembersPage,
@@ -67,11 +70,14 @@ export default function App() {
           <Route path="/booster/:id" element={<Protected><BoosterDetailPage /></Protected>} />
           <Route path="/awards" element={<Protected><AwardsPage /></Protected>} />
           <Route path="/prizes" element={<Protected><PrizesPage /></Protected>} />
+          <Route path="/activity" element={<Protected><ActivityPage /></Protected>} />
           <Route path="/history" element={<Protected><HistoryPage /></Protected>} />
           <Route path="/profile" element={<Protected><ProfilePage /></Protected>} />
 
           <Route path="/captain" element={<Protected role="captain"><CaptainPage /></Protected>} />
 
+          <Route path="/admin" element={<Protected role="admin"><AdminHomePage /></Protected>} />
+          <Route path="/admin/booster" element={<Protected role="admin"><AdminBoosterPage /></Protected>} />
           <Route path="/admin/members" element={<Protected role="admin"><AdminMembersPage /></Protected>} />
           <Route path="/admin/teams" element={<Protected role="admin"><AdminTeamsPage /></Protected>} />
           <Route path="/admin/classifications" element={<Protected role="admin"><AdminClassificationsPage /></Protected>} />

@@ -246,3 +246,16 @@ func ValidPrizeStatus(v string) bool {
 	}
 	return false
 }
+
+// ActivityItem is one entry in the season-wide feed that backs both the
+// activity page and the notification bell.
+type ActivityItem struct {
+	ID         string    `json:"id"`
+	Type       string    `json:"type"` // "tyfcb" | "visitor"
+	ActorName  string    `json:"actor_name"`
+	TargetName string    `json:"target_name"`
+	Amount     *float64  `json:"amount,omitempty"`
+	Status     string    `json:"status"`
+	Points     *int      `json:"points,omitempty"`
+	CreatedAt  time.Time `json:"created_at"`
+}

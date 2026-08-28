@@ -58,6 +58,7 @@ func main() {
 	events := postgres.NewWeeklyEventRepo(db)
 	passRepo := postgres.NewScoringPassRepo(db)
 	prizeRepo := postgres.NewPrizeRepo(db)
+	activityRepo := postgres.NewActivityRepo(db)
 
 	// Use cases (application layer).
 	badgeUC := usecase.NewBadges(badges)
@@ -68,7 +69,7 @@ func main() {
 	catalogUC := usecase.NewCatalog(teams, classes, boosters, seasons)
 	passUC := usecase.NewScoringPass(passRepo, ledger, events, seasons, badgeUC, db)
 	prizeUC := usecase.NewPrize(prizeRepo, members, seasons, badgeUC, db)
-	leaderboardUC := usecase.NewLeaderboard(ledger, members, tyfcbRepo, visitorRepo, boosters, badges, seasons)
+	leaderboardUC := usecase.NewLeaderboard(ledger, members, tyfcbRepo, visitorRepo, boosters, badges, activityRepo, seasons)
 
 	server := delivery.NewServer(delivery.Deps{
 		Config:      cfg,

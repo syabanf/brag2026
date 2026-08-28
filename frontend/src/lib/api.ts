@@ -1,4 +1,5 @@
 import type {
+  ActivityItem,
   Badge,
   BoosterEvent,
   CaptainTeam,
@@ -118,6 +119,8 @@ export const api = {
   },
 
   badges: () => get<Badge[]>("/badges"),
+
+  activity: (limit = 50) => get<ActivityItem[]>(`/activity?limit=${limit}`),
 
   tour: {
     steps: () => get<TourStep[]>("/tour/steps"),

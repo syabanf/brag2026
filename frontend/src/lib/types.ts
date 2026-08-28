@@ -212,3 +212,14 @@ export type PassResult = {
   points_added: number;
   skipped?: string[];
 };
+
+export type ActivityItem = {
+  id: string;
+  type: "tyfcb" | "visitor";
+  actor_name: string;
+  target_name: string;
+  amount?: number;
+  status: string;
+  points?: number;
+  created_at: string;
+};

@@ -107,6 +107,7 @@ func (s *Server) Router() http.Handler {
 			r.Get("/boosters", s.handleListBoosters)
 			r.Get("/boosters/{id}", s.handleGetBooster)
 			r.Get("/badges", s.handleBadges)
+			r.Get("/activity", s.handleActivity)
 			r.Get("/events", s.handleListWeeklyEvents)
 			r.Get("/events/bank", s.handleEventBank)
 			r.Get("/prizes", s.handleListPrizes)

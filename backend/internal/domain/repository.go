@@ -143,6 +143,12 @@ type ScoringPassRepository interface {
 	TeamOf(ctx context.Context, memberID string) (*string, error)
 }
 
+// ActivityRepository serves the season-wide feed: TYFCB and visitor events
+// merged into one reverse-chronological stream.
+type ActivityRepository interface {
+	Recent(ctx context.Context, seasonID string, limit int) ([]ActivityItem, error)
+}
+
 type PrizeRepository interface {
 	List(ctx context.Context, seasonID string, status string) ([]Prize, error)
 	FindByID(ctx context.Context, id string) (*Prize, error)

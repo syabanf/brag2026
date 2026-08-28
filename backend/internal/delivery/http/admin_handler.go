@@ -365,6 +365,17 @@ func (s *Server) handleTeamHistory(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, entries)
 }
 
+func (s *Server) handleActivity(w http.ResponseWriter, r *http.Request) {
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+
+	items, err := s.leaderboard.Activity(r.Context(), limit)
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, items)
+}
+
 func (s *Server) handleBadges(w http.ResponseWriter, r *http.Request) {
 	badges, err := s.leaderboard.Badges(r.Context())
 	if err != nil {

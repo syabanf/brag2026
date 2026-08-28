@@ -13,6 +13,7 @@ type Leaderboard struct {
 	visitors domain.VisitorRepository
 	boosters domain.BoosterRepository
 	badges   domain.BadgeRepository
+	activity domain.ActivityRepository
 	seasons  domain.SeasonRepository
 }
 
@@ -23,11 +24,13 @@ func NewLeaderboard(
 	visitors domain.VisitorRepository,
 	boosters domain.BoosterRepository,
 	badges domain.BadgeRepository,
+	activity domain.ActivityRepository,
 	seasons domain.SeasonRepository,
 ) *Leaderboard {
 	return &Leaderboard{
 		ledger: ledger, members: members, tyfcb: tyfcb,
-		visitors: visitors, boosters: boosters, badges: badges, seasons: seasons,
+		visitors: visitors, boosters: boosters, badges: badges,
+		activity: activity, seasons: seasons,
 	}
 }
 
@@ -158,4 +161,17 @@ func (u *Leaderboard) Dashboard(ctx context.Context, userID string) (*Dashboard,
 
 func (u *Leaderboard) Badges(ctx context.Context) ([]domain.Badge, error) {
 	return u.badges.List(ctx)
+}
+
+// Activity backs both the feed page and the notification bell; the bell simply
+// asks for fewer rows.
+func (u *Leaderboard) Activity(ctx context.Context, limit int) ([]domain.ActivityItem, error) {
+	season, err := u.season(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if limit <= 0 || limit > 200 {
+		limit = 50
+	}
+	return u.activity.Recent(ctx, season.ID, limit)
 }

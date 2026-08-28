@@ -49,7 +49,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
           {(user?.role === "admin" || user?.role === "captain") && (
             <Link
-              to={user.role === "admin" ? "/admin/members" : "/captain"}
+              to={user.role === "admin" ? "/admin" : "/captain"}
               className="flex min-h-11 items-center gap-1.5 rounded-full border border-brand-100 bg-brand-50 px-3 text-sm font-bold text-brand-700 transition hover:bg-brand-100"
             >
               <Shield className="h-[1.05rem] w-[1.05rem]" />
@@ -88,6 +88,14 @@ export function AppShell({ children }: { children: ReactNode }) {
                 >
                   <UserIcon className="h-4 w-4" />
                   Profil
+                </Link>
+                <Link
+                  to="/activity"
+                  onClick={() => setMenuOpen(false)}
+                  className="flex items-center gap-2 px-4 py-3 text-sm font-semibold text-ink transition hover:bg-brand-50"
+                >
+                  <BarChart3 className="h-4 w-4" />
+                  Aktivitas
                 </Link>
                 <Link
                   to="/history"
