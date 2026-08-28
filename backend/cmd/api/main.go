@@ -36,7 +36,7 @@ func main() {
 
 	ctx := context.Background()
 
-	db, err := postgres.Connect(ctx, cfg.DatabaseURL)
+	db, err := postgres.Connect(ctx, cfg.DatabaseURL, cfg.DBMaxConns)
 	if err != nil {
 		slog.Error("database", "err", err)
 		os.Exit(1)

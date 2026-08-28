@@ -20,13 +20,20 @@ type DB struct {
 	pool *pgxpool.Pool
 }
 
-func Connect(ctx context.Context, dsn string) (*DB, error) {
+func Connect(ctx context.Context, dsn string, maxConns int32) (*DB, error) {
 	cfg, err := pgxpool.ParseConfig(dsn)
 	if err != nil {
 		return nil, fmt.Errorf("parse database url: %w", err)
 	}
-	cfg.MaxConns = 10
+	if maxConns < 1 {
+		maxConns = 1
+	}
+	cfg.MaxConns = maxConns
+	// A few warm connections so the first requests after a deploy do not each
+	// pay for a handshake.
+	cfg.MinConns = min(4, maxConns)
 	cfg.MaxConnLifetime = time.Hour
+	cfg.MaxConnIdleTime = 5 * time.Minute
 
 	pool, err := pgxpool.NewWithConfig(ctx, cfg)
 	if err != nil {

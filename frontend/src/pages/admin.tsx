@@ -39,6 +39,10 @@ export function AdminTyfcbPage() {
       reload();
     } catch (err) {
       toast.error(err instanceof ApiError ? err.message : "Gagal memperbarui status.");
+      // A conflict means someone else moved the entry while this admin was
+      // looking at it. Reloading here shows them where it landed, instead of
+      // leaving a stale row under a message telling them to refresh.
+      if (err instanceof ApiError && err.status === 409) reload();
     } finally {
       setBusy(null);
     }

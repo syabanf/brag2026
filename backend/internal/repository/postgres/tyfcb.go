@@ -168,19 +168,18 @@ func (r *TyfcbRepo) Create(ctx context.Context, e *domain.TyfcbEntry, submittedB
 	return id, err
 }
 
-func (r *TyfcbRepo) UpdateStatus(ctx context.Context, id string, status domain.TyfcbStatus, verifiedBy *string, verifiedAt *time.Time) error {
+// UpdateStatusGuarded only writes when the row still holds `from`. A losing
+// concurrent request gets false rather than crediting the entry a second time.
+func (r *TyfcbRepo) UpdateStatusGuarded(ctx context.Context, id string, from, to domain.TyfcbStatus, verifiedBy *string, verifiedAt *time.Time) (bool, error) {
 	tag, err := r.db.q(ctx).Exec(ctx, `
 		update tyfcb_entries
 		set status = $1::tyfcb_status, verified_by = $2, verified_at = $3
-		where id = $4
-	`, string(status), verifiedBy, verifiedAt, id)
+		where id = $4 and status = $5::tyfcb_status
+	`, string(to), verifiedBy, verifiedAt, id, string(from))
 	if err != nil {
-		return err
+		return false, err
 	}
-	if tag.RowsAffected() == 0 {
-		return domain.NotFound("Entry tidak ditemukan.")
-	}
-	return nil
+	return tag.RowsAffected() == 1, nil
 }
 
 func (r *TyfcbRepo) Void(ctx context.Context, id, voidedBy string) error {

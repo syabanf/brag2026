@@ -82,7 +82,10 @@ type TyfcbRepository interface {
 	ListPaged(ctx context.Context, f TyfcbFilter) ([]TyfcbEntry, int, error)
 	CountPair(ctx context.Context, giverID, receiverID, seasonID string) (int, error)
 	Create(ctx context.Context, e *TyfcbEntry, submittedBy *string) (string, error)
-	UpdateStatus(ctx context.Context, id string, status TyfcbStatus, verifiedBy *string, verifiedAt *time.Time) error
+	// UpdateStatusGuarded only succeeds when the row still holds `from`. Two
+	// admins verifying the same entry would otherwise both credit it, and the
+	// ledger has no way to take points back except another entry.
+	UpdateStatusGuarded(ctx context.Context, id string, from, to TyfcbStatus, verifiedBy *string, verifiedAt *time.Time) (bool, error)
 	Void(ctx context.Context, id, voidedBy string) error
 	CountByStatus(ctx context.Context, seasonID string) (map[string]int, error)
 }

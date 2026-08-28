@@ -9,10 +9,14 @@ backend:
   stage: verify
   image: golang:1.26-alpine
   script:
+    # The race detector needs cgo, which the alpine image does not ship.
+    - apk add --no-cache gcc musl-dev
     - cd backend
     - gofmt -l . | tee /tmp/fmt && test ! -s /tmp/fmt
     - go vet ./...
-    - go test ./...
+    # -race catches the concurrency bugs the scoring tests are written to
+    # find; -count=1 stops a cached PASS from hiding an intermittent one.
+    - CGO_ENABLED=1 go test -race -count=1 ./...
     - go build -o /dev/null ./cmd/api
   rules:
     - changes: [backend/**/*]
@@ -24,7 +28,7 @@ frontend:
   script:
     - cd frontend
     - npm ci
-    - npx tsc --noEmit
+    - npx tsc -b --force
     - npm run lint
     - npm run build
   cache:

@@ -17,6 +17,12 @@ type Config struct {
 	CookieSecure   bool
 	ShutdownGrace  time.Duration
 
+	// DBMaxConns caps concurrent database work. Requests beyond it queue
+	// rather than fail, so the ceiling shows up as latency: raise it when a
+	// load test shows throughput falling as concurrency rises, and keep it
+	// under Postgres' own max_connections across every running instance.
+	DBMaxConns int32
+
 	// Optional: without these the guided tour narrates using the browser's
 	// own speech synthesis instead.
 	ElevenLabsKey   string
@@ -30,6 +36,7 @@ func Load() (*Config, error) {
 		CookieName:    env("SESSION_COOKIE", "brag_session"),
 		CookieSecure:  envBool("COOKIE_SECURE", false),
 		ShutdownGrace: 15 * time.Second,
+		DBMaxConns:    int32(envInt("DB_MAX_CONNS", 25)),
 
 		ElevenLabsKey:   env("ELEVENLABS_API_KEY", ""),
 		ElevenLabsVoice: env("ELEVENLABS_VOICE_ID", ""),
@@ -56,6 +63,14 @@ func env(key, fallback string) string {
 		return v
 	}
 	return fallback
+}
+
+func envInt(key string, fallback int) int {
+	v, err := strconv.Atoi(env(key, ""))
+	if err != nil || v <= 0 {
+		return fallback
+	}
+	return v
 }
 
 func envBool(key string, fallback bool) bool {

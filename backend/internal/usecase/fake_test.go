@@ -121,11 +121,13 @@ func (f *fakeTyfcbRepo) Create(_ context.Context, e *domain.TyfcbEntry, _ *strin
 	f.created = append(f.created, *e)
 	return "entry-new", nil
 }
-func (f *fakeTyfcbRepo) UpdateStatus(_ context.Context, id string, status domain.TyfcbStatus, _ *string, _ *time.Time) error {
-	if e, ok := f.entries[id]; ok {
-		e.Status = status
+func (f *fakeTyfcbRepo) UpdateStatusGuarded(_ context.Context, id string, from, to domain.TyfcbStatus, _ *string, _ *time.Time) (bool, error) {
+	e, ok := f.entries[id]
+	if !ok || e.Status != from {
+		return false, nil
 	}
-	return nil
+	e.Status = to
+	return true, nil
 }
 func (f *fakeTyfcbRepo) Void(_ context.Context, id, _ string) error {
 	if e, ok := f.entries[id]; ok {

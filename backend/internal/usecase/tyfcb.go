@@ -156,33 +156,6 @@ func (u *Tyfcb) SetStatus(ctx context.Context, id string, next domain.TyfcbStatu
 	reverses := entry.Status == domain.TyfcbVerified && next != domain.TyfcbVerified
 
 	err = u.tx.WithinTx(ctx, func(ctx context.Context) error {
-		if entry.ComputedScore != nil && (credits || reverses) {
-			points := *entry.ComputedScore
-			keterangan := "TYFCB verified"
-			if reverses {
-				points = -points
-				keterangan = "TYFCB reversal"
-			}
-
-			var teamID *string
-			if giver != nil {
-				teamID = giver.TeamID
-			}
-			ref := entry.ID
-
-			if err := u.ledger.Append(ctx, &domain.LedgerEntry{
-				SeasonID:   entry.SeasonID,
-				MemberID:   &entry.GiverID,
-				TeamID:     teamID,
-				Kategori:   domain.CategoryTyfcb,
-				Points:     points,
-				SumberRef:  &ref,
-				Keterangan: &keterangan,
-			}); err != nil {
-				return err
-			}
-		}
-
 		var verifiedBy *string
 		var verifiedAt *time.Time
 		if next == domain.TyfcbVerified {
@@ -190,7 +163,42 @@ func (u *Tyfcb) SetStatus(ctx context.Context, id string, next domain.TyfcbStatu
 			verifiedBy, verifiedAt = &actorID, &now
 		}
 
-		return u.tyfcb.UpdateStatus(ctx, id, next, verifiedBy, verifiedAt)
+		// The guarded update runs first, so a request that lost the race stops
+		// here instead of appending points it is not entitled to.
+		ok, err := u.tyfcb.UpdateStatusGuarded(ctx, id, entry.Status, next, verifiedBy, verifiedAt)
+		if err != nil {
+			return err
+		}
+		if !ok {
+			return domain.Conflict("Status entry sudah berubah. Muat ulang halaman.")
+		}
+
+		if entry.ComputedScore == nil || (!credits && !reverses) {
+			return nil
+		}
+
+		points := *entry.ComputedScore
+		keterangan := "TYFCB verified"
+		if reverses {
+			points = -points
+			keterangan = "TYFCB reversal"
+		}
+
+		var teamID *string
+		if giver != nil {
+			teamID = giver.TeamID
+		}
+		ref := entry.ID
+
+		return u.ledger.Append(ctx, &domain.LedgerEntry{
+			SeasonID:   entry.SeasonID,
+			MemberID:   &entry.GiverID,
+			TeamID:     teamID,
+			Kategori:   domain.CategoryTyfcb,
+			Points:     points,
+			SumberRef:  &ref,
+			Keterangan: &keterangan,
+		})
 	})
 	if err != nil {
 		return err
