@@ -1,0 +1,172 @@
+import type {
+  Badge,
+  BoosterEvent,
+  CaptainTeam,
+  Classification,
+  Dashboard,
+  Leaderboard,
+  LedgerEntry,
+  Member,
+  Team,
+  TyfcbEntry,
+  User,
+  Visitor,
+} from "./types";
+
+const BASE = import.meta.env.VITE_API_URL ?? "http://localhost:8080";
+
+export class ApiError extends Error {
+  status: number;
+
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+  }
+}
+
+/**
+ * Every call carries the session cookie. The backend replies with
+ * `{ error }` on failure, which is unwrapped here so callers only ever deal
+ * with a thrown ApiError carrying a message already written for the user.
+ */
+async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  let res: Response;
+  try {
+    res = await fetch(`${BASE}/api${path}`, {
+      ...init,
+      credentials: "include",
+      headers: {
+        ...(init?.body ? { "Content-Type": "application/json" } : {}),
+        ...init?.headers,
+      },
+    });
+  } catch {
+    throw new ApiError("Tidak bisa terhubung ke server.", 0);
+  }
+
+  if (res.status === 204) {
+    return undefined as T;
+  }
+
+  const text = await res.text();
+  const payload = text ? JSON.parse(text) : null;
+
+  if (!res.ok) {
+    throw new ApiError(payload?.error ?? "Terjadi kesalahan.", res.status);
+  }
+
+  return payload as T;
+}
+
+const get = <T>(path: string) => request<T>(path);
+const post = <T>(path: string, body?: unknown) =>
+  request<T>(path, { method: "POST", body: body ? JSON.stringify(body) : undefined });
+const patch = <T>(path: string, body?: unknown) =>
+  request<T>(path, { method: "PATCH", body: body ? JSON.stringify(body) : undefined });
+const del = <T>(path: string) => request<T>(path, { method: "DELETE" });
+
+export const api = {
+  auth: {
+    login: (email: string, password: string) =>
+      post<{ user: User }>("/auth/login", { email, password }),
+    logout: () => post<{ ok: boolean }>("/auth/logout"),
+    me: () => get<{ user: User; member: Member | null }>("/auth/me"),
+    changePassword: (current_password: string, new_password: string) =>
+      post<{ ok: boolean }>("/auth/change-password", { current_password, new_password }),
+  },
+
+  dashboard: () => get<Dashboard>("/dashboard"),
+
+  leaderboard: {
+    get: () => get<Leaderboard>("/leaderboard"),
+    public: () => get<Leaderboard>("/public/leaderboard"),
+    teamHistory: (teamId: string, kategori?: string) =>
+      get<LedgerEntry[]>(
+        `/leaderboard/teams/${teamId}/history${kategori ? `?kategori=${kategori}` : ""}`,
+      ),
+    publicTeamHistory: (teamId: string, kategori?: string) =>
+      get<LedgerEntry[]>(
+        `/public/leaderboard/teams/${teamId}/history${kategori ? `?kategori=${kategori}` : ""}`,
+      ),
+  },
+
+  members: {
+    search: (q: string) => get<Member[]>(`/members/search?q=${encodeURIComponent(q)}`),
+  },
+
+  tyfcb: {
+    submit: (buyer_id: string, nilai: number, tanggal: string) =>
+      post<TyfcbEntry>("/tyfcb", { buyer_id, nilai, tanggal }),
+  },
+
+  visitors: {
+    register: (nama: string, kontak: string, tanggal_undang: string) =>
+      post<Visitor>("/visitors", { nama, kontak, tanggal_undang }),
+  },
+
+  boosters: {
+    list: (activeOnly = false) =>
+      get<BoosterEvent[]>(`/boosters${activeOnly ? "?active=true" : ""}`),
+    get: (id: string) => get<BoosterEvent>(`/boosters/${id}`),
+  },
+
+  badges: () => get<Badge[]>("/badges"),
+
+  captain: {
+    team: () => get<CaptainTeam>("/captain/team"),
+    submitTyfcb: (member_id: string, buyer_id: string, nilai: number, tanggal: string) =>
+      post<TyfcbEntry>("/captain/tyfcb", { member_id, buyer_id, nilai, tanggal }),
+    voidTyfcb: (id: string) => patch<{ ok: boolean }>(`/captain/tyfcb/${id}/void`),
+    registerVisitor: (member_id: string, nama: string, kontak: string, tanggal_undang: string) =>
+      post<Visitor>("/captain/visitors", { member_id, nama, kontak, tanggal_undang }),
+    voidVisitor: (id: string) => patch<{ ok: boolean }>(`/captain/visitors/${id}/void`),
+    setPassword: (id: string, new_password: string) =>
+      patch<{ ok: boolean }>(`/captain/members/${id}/password`, { new_password }),
+  },
+
+  admin: {
+    members: {
+      list: () => get<Member[]>("/admin/members"),
+      create: (body: Record<string, unknown>) => post<{ id: string }>("/admin/members", body),
+      update: (id: string, body: Record<string, unknown>) =>
+        patch<{ ok: boolean }>(`/admin/members/${id}`, body),
+    },
+    teams: {
+      list: () => get<Team[]>("/admin/teams"),
+      meta: () => get<{ teams: Team[]; classifications: Classification[] }>("/admin/teams-meta"),
+      create: (nama_tim: string) => post<{ id: string }>("/admin/teams", { nama_tim }),
+      rename: (id: string, nama_tim: string) =>
+        patch<{ ok: boolean }>(`/admin/teams/${id}`, { nama_tim }),
+      remove: (id: string) => del<{ ok: boolean }>(`/admin/teams/${id}`),
+    },
+    classifications: {
+      list: () => get<Classification[]>("/admin/classifications"),
+      create: (nama: string) => post<{ id: string }>("/admin/classifications", { nama }),
+      rename: (id: string, nama: string) =>
+        patch<{ ok: boolean }>(`/admin/classifications/${id}`, { nama }),
+      remove: (id: string) => del<{ ok: boolean }>(`/admin/classifications/${id}`),
+    },
+    boosters: {
+      list: () => get<BoosterEvent[]>("/admin/booster"),
+      create: (body: Record<string, unknown>) => post<{ id: string }>("/admin/booster", body),
+      update: (id: string, body: Record<string, unknown>) =>
+        patch<{ ok: boolean }>(`/admin/booster/${id}`, body),
+      remove: (id: string) => del<{ ok: boolean }>(`/admin/booster/${id}`),
+    },
+    tyfcb: {
+      list: (status?: string) =>
+        get<{ entries: TyfcbEntry[]; counts: Record<string, number> }>(
+          `/admin/tyfcb${status ? `?status=${status}` : ""}`,
+        ),
+      setStatus: (id: string, status: string) =>
+        patch<{ ok: boolean }>(`/admin/tyfcb/${id}`, { status }),
+    },
+    visitors: {
+      list: (status?: string) =>
+        get<Visitor[]>(`/admin/visitors${status ? `?status=${status}` : ""}`),
+      update: (id: string, body: { status_hadir?: string; is_converted?: boolean }) =>
+        patch<{ ok: boolean }>(`/admin/visitors/${id}`, body),
+    },
+  },
+};

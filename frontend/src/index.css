@@ -1,0 +1,95 @@
+@import url("https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700;9..40,800;9..40,900&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+  --background: #fdfcfc;
+  --foreground: #171923;
+  --hairline: rgba(23, 25, 35, 0.07);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  min-height: 100%;
+  background: var(--background);
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  min-height: 100%;
+  margin: 0;
+  /* One soft brand wash at the top rather than a full-page gradient, so long
+     scrolling pages stay calm and the cards carry the contrast. */
+  background:
+    radial-gradient(60rem 22rem at 50% -8rem, rgba(200, 16, 46, 0.07), transparent),
+    var(--background);
+  color: var(--foreground);
+  font-family: "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+/* Figures read as data: even digit widths stop numbers jittering on update. */
+.num {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+@layer components {
+  .card {
+    @apply rounded-2xl border bg-white;
+    border-color: var(--hairline);
+    box-shadow: 0 1px 2px rgba(23, 25, 35, 0.04), 0 8px 24px -12px rgba(23, 25, 35, 0.12);
+  }
+
+  .section-label {
+    @apply text-[0.68rem] font-bold uppercase tracking-[0.14em] text-muted;
+  }
+
+  .btn-primary {
+    @apply flex min-h-12 items-center justify-center gap-2 rounded-full bg-brand-600 px-5 text-sm font-bold text-white transition hover:bg-brand-700 active:scale-[0.98] disabled:opacity-60;
+  }
+
+  .btn-secondary {
+    @apply flex min-h-12 items-center justify-center gap-2 rounded-full border border-brand-100 bg-white px-5 text-sm font-bold text-ink transition hover:bg-brand-50 active:scale-[0.98] disabled:opacity-60;
+  }
+
+  .field {
+    @apply w-full rounded-xl border border-brand-100 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-brand-600;
+  }
+}
+
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.safe-bottom {
+  padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
