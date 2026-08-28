@@ -18,6 +18,10 @@ import (
 
 const SessionDuration = 30 * 24 * time.Hour
 
+// dummyHash is a valid bcrypt digest of a value nobody can supply. Comparing
+// against it makes a missing account cost the same as a wrong password.
+const dummyHash = "$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy"
+
 type Auth struct {
 	users    domain.UserRepository
 	sessions domain.SessionRepository
@@ -55,11 +59,15 @@ func (a *Auth) SignIn(ctx context.Context, email, password string) (*domain.User
 	if err != nil {
 		return nil, "", err
 	}
+
+	// An unknown email still pays the cost of a bcrypt comparison. Returning
+	// early would answer in about a millisecond instead of sixty, which is a
+	// reliable oracle for enumerating who has an account.
 	if user == nil {
-		return nil, "", domain.NewError(domain.ErrUnauthorized, "Email atau kata sandi salah.")
+		hash = dummyHash
 	}
 
-	if err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password)); err != nil {
+	if bcrypt.CompareHashAndPassword([]byte(hash), []byte(password)) != nil || user == nil {
 		return nil, "", domain.NewError(domain.ErrUnauthorized, "Email atau kata sandi salah.")
 	}
 

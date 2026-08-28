@@ -29,6 +29,10 @@ services:
       # Cookies are credentialed, so the browser origin must be listed exactly.
       ALLOWED_ORIGINS: ${WEB_PUBLIC_URL:-http://localhost:5173}
       COOKIE_SECURE: "false"
+      # Optional guided-tour voice-over. Set these in a local .env next to this
+      # file; without them the tour narrates with the browser's own voice.
+      ELEVENLABS_API_KEY: ${ELEVENLABS_API_KEY:-}
+      ELEVENLABS_VOICE_ID: ${ELEVENLABS_VOICE_ID:-}
     depends_on:
       db:
         condition: service_healthy

@@ -259,3 +259,27 @@ type ActivityItem struct {
 	Points     *int      `json:"points,omitempty"`
 	CreatedAt  time.Time `json:"created_at"`
 }
+
+// ContactSphere is a named set of classifications that naturally refer each
+// other business — a wedding sphere might hold Photography, Catering, Venue.
+type ContactSphere struct {
+	ID          string           `json:"id"`
+	SeasonID    string           `json:"season_id"`
+	Nama        string           `json:"nama"`
+	Deskripsi   *string          `json:"deskripsi"`
+	Klasifikasi []Classification `json:"klasifikasi"`
+}
+
+// OneToOne is a recorded meeting between two members. The pair is stored in a
+// canonical order so a duplicate is caught whichever side files it.
+type OneToOne struct {
+	ID          string    `json:"id"`
+	SeasonID    string    `json:"season_id"`
+	MemberA     string    `json:"member_a"`
+	MemberB     string    `json:"member_b"`
+	MemberAName string    `json:"member_a_name,omitempty"`
+	MemberBName string    `json:"member_b_name,omitempty"`
+	Tanggal     time.Time `json:"tanggal"`
+	Catatan     *string   `json:"catatan"`
+	CreatedAt   time.Time `json:"created_at"`
+}

@@ -6,6 +6,7 @@ import { useApi } from "../lib/use-api";
 import { useAuth } from "../lib/use-auth";
 import { formatCurrency, formatDate, formatPoints } from "../lib/format";
 import { Badge, EmptyState, ErrorNote, PageHeader, Spinner } from "../components/ui";
+import { badgeIcon, badgeTone } from "../lib/badge-icons";
 
 // ── Booster ───────────────────────────────────────────────────────────────
 
@@ -27,7 +28,7 @@ export function BoosterPage() {
       {boosters.length === 0 ? (
         <EmptyState message="Belum ada booster." />
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {boosters.map((booster) => {
             const active = booster.status === "aktif";
             return (
@@ -116,21 +117,24 @@ export function AwardsPage() {
         description="Badge diberikan otomatis saat kamu mencapai milestone tertentu sepanjang musim."
       />
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {badges.map((badge) => (
-          <div key={badge.badge_code} className="card flex items-start gap-3 p-4">
-            <span
-              aria-hidden
-              className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-brand-50 text-xl"
-            >
-              {badge.ikon ?? "🏅"}
-            </span>
-            <div className="min-w-0">
-              <p className="text-sm font-black text-ink">{badge.nama}</p>
-              <p className="mt-0.5 text-xs leading-relaxed text-muted">{badge.deskripsi}</p>
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        {badges.map((badge) => {
+          const Icon = badgeIcon(badge.badge_code);
+          return (
+            <div key={badge.badge_code} className="card flex items-start gap-3 p-4">
+              <span
+                aria-hidden
+                className={`grid h-11 w-11 shrink-0 place-items-center rounded-xl ${badgeTone(badge.badge_code)}`}
+              >
+                <Icon className="h-5 w-5" />
+              </span>
+              <div className="min-w-0">
+                <p className="text-sm font-black text-ink">{badge.nama}</p>
+                <p className="mt-0.5 text-xs leading-relaxed text-muted">{badge.deskripsi}</p>
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {badges.length === 0 && <EmptyState message="Belum ada badge terdaftar." />}

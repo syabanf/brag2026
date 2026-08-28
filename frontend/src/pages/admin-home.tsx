@@ -42,7 +42,7 @@ export function AdminHomePage() {
         description="Ringkasan musim dan pintu masuk ke semua alat panitia."
       />
 
-      <div className="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-2.5 sm:gap-3 md:grid-cols-4">
         <StatCard
           icon={Receipt}
           tone={pendingCount > 0 ? "amber" : "emerald"}
@@ -73,7 +73,7 @@ export function AdminHomePage() {
         />
       </div>
 
-      <section className="grid gap-2.5 sm:grid-cols-2">
+      <section className="grid gap-2.5 md:grid-cols-2 xl:grid-cols-3">
         {sections.map(({ to, icon: Icon, label, helper }) => (
           <Link key={to} to={to} className="card flex items-center gap-3 p-4 transition active:scale-[0.99]">
             <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-brand-50 text-brand-600">
@@ -88,7 +88,7 @@ export function AdminHomePage() {
         ))}
       </section>
 
-      <section className="grid gap-2.5 sm:grid-cols-2">
+      <section className="grid gap-2.5 md:grid-cols-2 xl:grid-cols-3">
         <Link to="/prizes" className="card flex items-center gap-3 p-4 transition active:scale-[0.99]">
           <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-amber-50 text-amber-600">
             <Gift className="h-5 w-5" />

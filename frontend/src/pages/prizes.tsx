@@ -44,7 +44,7 @@ function PrizeList() {
   if (prizes.length === 0) return <EmptyState message="Belum ada hadiah di pool." />;
 
   return (
-    <ul className="grid gap-3 sm:grid-cols-2">
+    <ul className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
       {prizes.map((prize) => (
         <li key={prize.id} className="card p-4">
           <div className="flex items-start gap-3">

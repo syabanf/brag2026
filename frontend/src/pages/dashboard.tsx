@@ -13,6 +13,7 @@ import { api } from "../lib/api";
 import { useApi } from "../lib/use-api";
 import { useAuth } from "../lib/use-auth";
 import { formatCurrency, formatCurrencyCompact, formatDate, formatPoints } from "../lib/format";
+import { badgeIcon, badgeTone } from "../lib/badge-icons";
 import { Badge, EmptyState, ErrorNote, PageHeader, Spinner, StatCard } from "../components/ui";
 
 export function DashboardPage() {
@@ -49,7 +50,7 @@ export function DashboardPage() {
         />
 
         {/* Row one is season-wide, row two is this member's team. */}
-        <div className="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-3">
+        <div className="grid grid-cols-2 gap-2.5 sm:gap-3 md:grid-cols-3">
           <StatCard
             icon={Receipt}
             tone="emerald"
@@ -101,7 +102,7 @@ export function DashboardPage() {
           )}
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid gap-3 sm:grid-cols-2 xl:gap-4">
           <QuickAction
             to="/submit?type=tyfcb"
             icon={Gift}
@@ -211,16 +212,19 @@ export function DashboardPage() {
           <section className="card p-4">
             <h2 className="mb-3 text-base font-black text-ink">Badge Kamu</h2>
             <div className="flex flex-wrap gap-2">
-              {data.badges.map((badge) => (
-                <span
-                  key={badge.badge_code}
-                  title={badge.deskripsi}
-                  className="flex items-center gap-1.5 rounded-full bg-brand-50 px-3 py-1.5 text-xs font-bold text-brand-700"
-                >
-                  <span aria-hidden>{badge.ikon ?? "🏅"}</span>
-                  {badge.nama}
-                </span>
-              ))}
+              {data.badges.map((badge) => {
+                const Icon = badgeIcon(badge.badge_code);
+                return (
+                  <span
+                    key={badge.badge_code}
+                    title={badge.deskripsi}
+                    className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold ${badgeTone(badge.badge_code)}`}
+                  >
+                    <Icon aria-hidden className="h-3.5 w-3.5" />
+                    {badge.nama}
+                  </span>
+                );
+              })}
             </div>
           </section>
         )}

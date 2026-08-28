@@ -149,7 +149,7 @@ type TicketSummary struct {
 	Tickets  int     `json:"tickets"`
 }
 
-// IssueTickets rebuilds every member's entitlement from their current season
+// IssueTickets recomputes every member's entitlement from their current season
 // totals. Rewriting rather than appending keeps the pass re-runnable without
 // inflating anyone's odds.
 func (u *Prize) IssueTickets(ctx context.Context) ([]TicketSummary, error) {
@@ -158,50 +158,24 @@ func (u *Prize) IssueTickets(ctx context.Context) ([]TicketSummary, error) {
 		return nil, err
 	}
 
-	members, err := u.members.ListBySeason(ctx, season.ID)
-	if err != nil {
-		return nil, err
-	}
-
-	out := []TicketSummary{}
-
+	var counts []domain.TicketCount
 	err = u.tx.WithinTx(ctx, func(ctx context.Context) error {
-		for _, member := range members {
-			if !member.IsActive {
-				continue
-			}
-
-			score, visitors, newPairs, err := u.prizes.RaffleInputs(ctx, season.ID, member.ID)
-			if err != nil {
-				return err
-			}
-
-			bySource := map[domain.RaffleSource]int{
-				domain.RaffleFromScore:     score / 100,
-				domain.RaffleFromVisitor:   visitors,
-				domain.RaffleFromTyfcbPair: newPairs,
-			}
-
-			if err := u.prizes.ReplaceTickets(ctx, season.ID, member.ID, bySource); err != nil {
-				return err
-			}
-
-			total := domain.RaffleTickets(score, visitors, newPairs)
-			if total > 0 {
-				out = append(out, TicketSummary{
-					MemberID: member.ID,
-					FullName: member.FullName,
-					NamaTim:  member.NamaTim,
-					Tickets:  total,
-				})
-			}
-		}
-		return nil
+		counts, err = u.prizes.RebuildTickets(ctx, season.ID)
+		return err
 	})
 	if err != nil {
 		return nil, err
 	}
 
+	out := make([]TicketSummary, 0, len(counts))
+	for _, c := range counts {
+		out = append(out, TicketSummary{
+			MemberID: c.MemberID,
+			FullName: c.FullName,
+			NamaTim:  c.NamaTim,
+			Tickets:  c.Tickets,
+		})
+	}
 	return out, nil
 }
 

@@ -3,6 +3,8 @@ package usecase
 import (
 	"context"
 
+	"golang.org/x/sync/errgroup"
+
 	"github.com/ikurniawann/brag2026/backend/internal/domain"
 )
 
@@ -102,22 +104,50 @@ func (u *Leaderboard) Dashboard(ctx context.Context, userID string) (*Dashboard,
 		return nil, err
 	}
 
-	teams, err := u.ledger.TeamScores(ctx, season.ID)
-	if err != nil {
+	// The remaining reads are independent, so they run concurrently: the
+	// dashboard costs one round trip instead of six stacked on each other.
+	var (
+		teams    []domain.TeamScore
+		boosters []domain.BoosterEvent
+	)
+
+	g, gctx := errgroup.WithContext(ctx)
+	g.Go(func() (err error) {
+		teams, err = u.ledger.TeamScores(gctx, season.ID)
+		return
+	})
+	g.Go(func() (err error) {
+		boosters, err = u.boosters.ListBySeason(gctx, season.ID, true)
+		return
+	})
+
+	out := &Dashboard{Season: season, Member: member}
+
+	if member != nil {
+		g.Go(func() (err error) {
+			out.MemberScore, err = u.ledger.MemberScore(gctx, member.ID, season.ID)
+			return
+		})
+		g.Go(func() (err error) {
+			out.RecentTyfcb, err = u.tyfcb.List(gctx, domain.TyfcbFilter{
+				SeasonID:   season.ID,
+				ReceiverID: member.ID,
+				Limit:      5,
+			})
+			return
+		})
+		g.Go(func() (err error) {
+			out.Badges, err = u.badges.ListForMember(gctx, member.ID)
+			return
+		})
+	}
+
+	if err := g.Wait(); err != nil {
 		return nil, err
 	}
 
-	boosters, err := u.boosters.ListBySeason(ctx, season.ID, true)
-	if err != nil {
-		return nil, err
-	}
-
-	out := &Dashboard{
-		Season:         season,
-		Member:         member,
-		Teams:          teams,
-		ActiveBoosters: boosters,
-	}
+	out.Teams = teams
+	out.ActiveBoosters = boosters
 
 	// Season-wide totals are derived from the standings already fetched, so
 	// the dashboard costs no extra aggregate queries.
@@ -138,22 +168,6 @@ func (u *Leaderboard) Dashboard(ctx context.Context, userID string) (*Dashboard,
 				break
 			}
 		}
-	}
-
-	if out.MemberScore, err = u.ledger.MemberScore(ctx, member.ID, season.ID); err != nil {
-		return nil, err
-	}
-
-	if out.RecentTyfcb, err = u.tyfcb.List(ctx, domain.TyfcbFilter{
-		SeasonID:   season.ID,
-		ReceiverID: member.ID,
-		Limit:      5,
-	}); err != nil {
-		return nil, err
-	}
-
-	if out.Badges, err = u.badges.ListForMember(ctx, member.ID); err != nil {
-		return nil, err
 	}
 
 	return out, nil

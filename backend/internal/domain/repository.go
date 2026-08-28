@@ -22,6 +22,9 @@ type SessionRepository interface {
 	FindUserByTokenHash(ctx context.Context, tokenHash string) (*User, error)
 	Delete(ctx context.Context, tokenHash string) error
 	DeleteAllForUser(ctx context.Context, userID string) error
+	// DeleteExpired reclaims rows nobody can use any more; without it the
+	// table grows for the life of the season.
+	DeleteExpired(ctx context.Context) (int64, error)
 }
 
 type SeasonRepository interface {
@@ -149,6 +152,33 @@ type ActivityRepository interface {
 	Recent(ctx context.Context, seasonID string, limit int) ([]ActivityItem, error)
 }
 
+type ContactSphereRepository interface {
+	ListBySeason(ctx context.Context, seasonID string) ([]ContactSphere, error)
+	Create(ctx context.Context, seasonID, nama string, deskripsi *string) (string, error)
+	Delete(ctx context.Context, id string) error
+	SetMembers(ctx context.Context, sphereID string, klasifikasiIDs []string) error
+	// SharesSphere reports whether two classifications sit in a common sphere,
+	// which is what POWER_TEAM rewards.
+	SharesSphere(ctx context.Context, seasonID string, a, b *string) (bool, error)
+}
+
+type OneToOneRepository interface {
+	List(ctx context.Context, seasonID, memberID string, limit int) ([]OneToOne, error)
+	Create(ctx context.Context, o *OneToOne, submittedBy *string) (string, error)
+	Delete(ctx context.Context, id string) error
+	// PairsWithTyfcbInWindow returns the member pairs that both met one-to-one
+	// and closed verified business inside the window — the ONE_TO_ONE payoff.
+	PairsWithTyfcbInWindow(ctx context.Context, seasonID string, from, to time.Time) ([][2]string, error)
+}
+
+// TicketCount is one member's raffle entitlement after a rebuild.
+type TicketCount struct {
+	MemberID string
+	FullName string
+	NamaTim  *string
+	Tickets  int
+}
+
 type PrizeRepository interface {
 	List(ctx context.Context, seasonID string, status string) ([]Prize, error)
 	FindByID(ctx context.Context, id string) (*Prize, error)
@@ -157,11 +187,11 @@ type PrizeRepository interface {
 	Delete(ctx context.Context, id string) error
 	CountApprovedDonations(ctx context.Context, memberID string) (int, error)
 
-	// Raffle tickets are rebuilt from scratch per member, so re-running the
-	// issue pass is idempotent.
-	ReplaceTickets(ctx context.Context, seasonID, memberID string, bySource map[RaffleSource]int) error
+	// RebuildTickets recomputes the whole season's entitlement in one pass.
+	// Rebuilding rather than appending keeps it idempotent, and doing it set-
+	// at-a-time avoids a query per member and a row per ticket.
+	RebuildTickets(ctx context.Context, seasonID string) ([]TicketCount, error)
 	TicketCounts(ctx context.Context, seasonID string) (map[string]int, error)
-	RaffleInputs(ctx context.Context, seasonID, memberID string) (score, visitors, newPairs int, err error)
 }
 
 type WeeklyEventRepository interface {

@@ -12,24 +12,26 @@ import (
 // than a single submission. Every pass is keyed by period so re-running it is
 // a no-op — the committee can trigger it as often as they like.
 type ScoringPass struct {
-	passes  domain.ScoringPassRepository
-	ledger  domain.LedgerRepository
-	events  domain.WeeklyEventRepository
-	seasons domain.SeasonRepository
-	badges  *Badges
-	tx      domain.TxManager
+	passes   domain.ScoringPassRepository
+	ledger   domain.LedgerRepository
+	events   domain.WeeklyEventRepository
+	oneToOne domain.OneToOneRepository
+	seasons  domain.SeasonRepository
+	badges   *Badges
+	tx       domain.TxManager
 }
 
 func NewScoringPass(
 	passes domain.ScoringPassRepository,
 	ledger domain.LedgerRepository,
 	events domain.WeeklyEventRepository,
+	oneToOne domain.OneToOneRepository,
 	seasons domain.SeasonRepository,
 	badges *Badges,
 	tx domain.TxManager,
 ) *ScoringPass {
 	return &ScoringPass{
-		passes: passes, ledger: ledger, events: events,
+		passes: passes, ledger: ledger, events: events, oneToOne: oneToOne,
 		seasons: seasons, badges: badges, tx: tx,
 	}
 }
@@ -37,12 +39,13 @@ func NewScoringPass(
 // PassResult reports what a run actually settled, so the admin screen can show
 // the outcome rather than a bare "done".
 type PassResult struct {
-	Period       string   `json:"period"`
-	FullRoster   []string `json:"full_roster_teams"`
-	StreakAwards int      `json:"streak_awards"`
-	HighRoller   *string  `json:"high_roller_member,omitempty"`
-	PointsAdded  int      `json:"points_added"`
-	Skipped      []string `json:"skipped,omitempty"`
+	Period         string   `json:"period"`
+	FullRoster     []string `json:"full_roster_teams"`
+	StreakAwards   int      `json:"streak_awards"`
+	OneToOneAwards int      `json:"one_to_one_awards"`
+	HighRoller     *string  `json:"high_roller_member,omitempty"`
+	PointsAdded    int      `json:"points_added"`
+	Skipped        []string `json:"skipped,omitempty"`
 }
 
 // weekBounds returns the Monday–Sunday window containing day.
@@ -85,6 +88,15 @@ func (u *ScoringPass) RunWeekly(ctx context.Context, day time.Time) (*PassResult
 	var streakMembers []string
 	if streakActive {
 		streakMembers, err = u.passes.MembersWithScoringDays(ctx, season.ID, from, to, 3)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// ONE_TO_ONE pays when a logged meeting turned into business the same week.
+	var payoffPairs [][2]string
+	if event != nil && event.EventCode == domain.EventOneToOne {
+		payoffPairs, err = u.oneToOne.PairsWithTyfcbInWindow(ctx, season.ID, from, to)
 		if err != nil {
 			return nil, err
 		}
@@ -156,6 +168,44 @@ func (u *ScoringPass) RunWeekly(ctx context.Context, day time.Time) (*PassResult
 
 			result.StreakAwards++
 			result.PointsAdded += domain.FlatStreak
+		}
+
+		// Both sides of a 1-2-1 are paid: the meeting was mutual, and the PRD
+		// does not single out the member who happened to close the business.
+		for _, pair := range payoffPairs {
+			for _, memberID := range pair {
+				ref := fmt.Sprintf("one_to_one:%s:%s", memberID, from.Format("2006-01-02"))
+				settled, err := u.passes.AlreadySettled(ctx, ref)
+				if err != nil {
+					return err
+				}
+				if settled {
+					continue
+				}
+
+				teamID, err := u.passes.TeamOf(ctx, memberID)
+				if err != nil {
+					return err
+				}
+
+				id := memberID
+				keterangan := "1-2-1 Payoff: berujung TYFCB minggu sama"
+
+				if err := u.ledger.Append(ctx, &domain.LedgerEntry{
+					SeasonID:   season.ID,
+					MemberID:   &id,
+					TeamID:     teamID,
+					Kategori:   domain.CategoryBonus,
+					Points:     domain.FlatOneToOne,
+					SumberRef:  &ref,
+					Keterangan: &keterangan,
+				}); err != nil {
+					return err
+				}
+
+				result.OneToOneAwards++
+				result.PointsAdded += domain.FlatOneToOne
+			}
 		}
 
 		return nil

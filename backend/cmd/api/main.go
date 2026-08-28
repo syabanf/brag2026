@@ -59,16 +59,19 @@ func main() {
 	passRepo := postgres.NewScoringPassRepo(db)
 	prizeRepo := postgres.NewPrizeRepo(db)
 	activityRepo := postgres.NewActivityRepo(db)
+	sphereRepo := postgres.NewContactSphereRepo(db)
+	oneToOneRepo := postgres.NewOneToOneRepo(db)
 
 	// Use cases (application layer).
 	badgeUC := usecase.NewBadges(badges)
 	authUC := usecase.NewAuth(users, sessions)
 	memberUC := usecase.NewMember(members, users, teams, classes, seasons, ledger, badgeUC, db)
-	tyfcbUC := usecase.NewTyfcb(tyfcbRepo, members, ledger, seasons, events, badgeUC, db)
+	tyfcbUC := usecase.NewTyfcb(tyfcbRepo, members, ledger, seasons, events, sphereRepo, badgeUC, db)
 	visitorUC := usecase.NewVisitor(visitorRepo, members, ledger, events, badgeUC, db)
 	catalogUC := usecase.NewCatalog(teams, classes, boosters, seasons)
-	passUC := usecase.NewScoringPass(passRepo, ledger, events, seasons, badgeUC, db)
+	passUC := usecase.NewScoringPass(passRepo, ledger, events, oneToOneRepo, seasons, badgeUC, db)
 	prizeUC := usecase.NewPrize(prizeRepo, members, seasons, badgeUC, db)
+	networkUC := usecase.NewNetwork(sphereRepo, oneToOneRepo, members, seasons, db)
 	leaderboardUC := usecase.NewLeaderboard(ledger, members, tyfcbRepo, visitorRepo, boosters, badges, activityRepo, seasons)
 
 	server := delivery.NewServer(delivery.Deps{
@@ -82,6 +85,7 @@ func main() {
 		Leaderboard: leaderboardUC,
 		Passes:      passUC,
 		Prizes:      prizeUC,
+		Network:     networkUC,
 		Seasons:     seasons,
 		MemberRepo:  members,
 		Events:      events,
@@ -95,6 +99,23 @@ func main() {
 		WriteTimeout:      60 * time.Second,
 		IdleTimeout:       90 * time.Second,
 	}
+
+	// Expired sessions are dead weight: nothing can use them, but they keep
+	// the token index growing for the life of the season.
+	go func() {
+		ticker := time.NewTicker(time.Hour)
+		defer ticker.Stop()
+
+		for {
+			removed, err := sessions.DeleteExpired(context.Background())
+			if err != nil {
+				slog.Error("session sweep", "err", err)
+			} else if removed > 0 {
+				slog.Info("swept expired sessions", "removed", removed)
+			}
+			<-ticker.C
+		}
+	}()
 
 	go func() {
 		slog.Info("listening", "port", cfg.Port, "origins", cfg.AllowedOrigins)

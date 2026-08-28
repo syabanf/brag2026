@@ -119,11 +119,20 @@ PRD's event bank are applied automatically:
 | `NEW_BLOOD` | Attendance milestones ×2 |
 | `CLOSING_WEEK` | Conversion bonus ×2 |
 
-`POWER_TEAM` needs a contact sphere and `ONE_TO_ONE` needs 1-2-1 logs, neither
-of which the schema records. `HIGH_ROLLER` and `STREAK` are flat bonuses rather than
-multipliers, settled by the passes below.
+| `POWER_TEAM` | TYFCB inside a shared contact sphere ×1.5 |
 
-`POWER_TEAM` and `ONE_TO_ONE` leave the multiplier at 1 rather than guessing.
+All twelve codes are implemented. `HIGH_ROLLER`, `STREAK` and `ONE_TO_ONE` are
+flat bonuses rather than multipliers, so they are settled by the passes below
+rather than applied at submission.
+
+**Contact spheres** group the classifications that naturally refer each other
+business — a wedding sphere might hold Photography, Catering and Venue. Admins
+manage them under Event & Bonus; `POWER_TEAM` rewards a transaction whose two
+sides share one.
+
+**One-to-one logs** record member meetings. They carry no points by themselves;
+during a `ONE_TO_ONE` week, a pair that both met and closed verified business
+earns +30 each.
 
 ### Periodic bonuses
 
@@ -136,6 +145,7 @@ Some bonuses depend on a whole day or week, so an admin settles them from
 | Naik Level | admin raises a member's colour status | team +75 / +150 |
 | Streak Week | member scored on 3+ distinct days | +40 |
 | High Roller Day | largest single verified TYFCB of the day | +50 |
+| 1-2-1 Payoff | a logged meeting closed business the same week | +30 each |
 
 Each pass is keyed by period, so re-running one is a no-op instead of a second
 payment.
@@ -168,6 +178,19 @@ boosters, weekly events, scoring passes and the prize pool.
 
 A guided tour sits behind the compass button in the header. Its nine steps and
 their narration come from the API, so caption and voice cannot drift.
+
+## Hardening
+
+- Login is rate limited to ten attempts per minute per IP, and an unknown
+  email still pays the cost of a bcrypt comparison so response time cannot be
+  used to enumerate accounts.
+- Request bodies are capped at 1 MB; every endpoint takes a small JSON object.
+- Responses carry `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`,
+  `Permissions-Policy` and `Cache-Control: no-store`. HSTS is left to the TLS
+  terminator, which knows whether the deployment is actually HTTPS.
+- Expired sessions are swept hourly rather than accumulating for the season.
+- The dashboard's independent reads run concurrently, and raffle tickets are
+  rebuilt set-at-a-time in SQL instead of a query per member.
 
 ## Gates
 

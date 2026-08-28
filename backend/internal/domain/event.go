@@ -83,12 +83,17 @@ type TyfcbContext struct {
 	// business went to.
 	ReceiverClassificationID *string
 	ReceiverColorStatus      ColorStatus
+	// SameContactSphere is true when giver and receiver sit in a shared
+	// contact sphere — complementary trades that naturally refer to each
+	// other. Resolved by the repository, since it is a lookup rather than a
+	// property of the transaction.
+	SameContactSphere bool
 }
 
-// TyfcbMultiplier is the event pengali (M) for one transaction. Events the
-// schema cannot express — POWER_TEAM needs a contact sphere, ONE_TO_ONE needs
-// 1-2-1 logs, and the flat-bonus events are settled in a weekly pass — leave
-// the multiplier at 1 rather than guessing.
+// TyfcbMultiplier is the event pengali (M) for one transaction. The flat-bonus
+// events (HIGH_ROLLER, ONE_TO_ONE, STREAK) are settled by a periodic pass
+// instead, and the PRD excludes them from the multiplier by design, so they
+// return 1 here.
 func TyfcbMultiplier(event *WeeklyEvent, ctx TyfcbContext) float64 {
 	if event == nil {
 		return 1
@@ -112,6 +117,10 @@ func TyfcbMultiplier(event *WeeklyEvent, ctx TyfcbContext) float64 {
 	case EventDoubleUp:
 		switch ctx.Tanggal.Weekday() {
 		case time.Saturday, time.Sunday:
+			return 1.5
+		}
+	case EventPowerTeam:
+		if ctx.SameContactSphere {
 			return 1.5
 		}
 	case EventFounder:

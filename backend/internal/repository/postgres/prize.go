@@ -119,27 +119,69 @@ func (r *PrizeRepo) CountApprovedDonations(ctx context.Context, memberID string)
 	return n, err
 }
 
-// ReplaceTickets rewrites a member's entitlement rather than appending, so the
-// issue pass can run as often as the committee likes without inflating anyone's
-// odds.
-func (r *PrizeRepo) ReplaceTickets(ctx context.Context, seasonID, memberID string, bySource map[domain.RaffleSource]int) error {
+// RebuildTickets recomputes every member's entitlement in three statements
+// rather than a query per member and an insert per ticket. generate_series
+// expands the counts into rows inside the database, so two hundred tickets
+// cost one round trip instead of two hundred.
+func (r *PrizeRepo) RebuildTickets(ctx context.Context, seasonID string) ([]domain.TicketCount, error) {
 	if _, err := r.db.q(ctx).Exec(ctx,
-		`delete from raffle_tickets where season_id = $1 and member_id = $2`,
-		seasonID, memberID); err != nil {
-		return err
+		`delete from raffle_tickets where season_id = $1`, seasonID); err != nil {
+		return nil, err
 	}
 
-	for source, count := range bySource {
-		for i := 0; i < count; i++ {
-			if _, err := r.db.q(ctx).Exec(ctx, `
-				insert into raffle_tickets (season_id, member_id, sumber)
-				values ($1, $2, $3::raffle_sumber)
-			`, seasonID, memberID, string(source)); err != nil {
-				return err
-			}
-		}
+	if _, err := r.db.q(ctx).Exec(ctx, `
+		with entitlement as (
+			select m.id as member_id,
+			       greatest((select coalesce(sum(sl.points), 0)::int / 100
+			                 from score_ledger sl
+			                 where sl.member_id = m.id and sl.season_id = $1), 0) as from_score,
+			       (select count(*)::int from visitors v
+			        where v.inviter_id = m.id and v.season_id = $1
+			          and v.is_void = false
+			          and v.status_hadir in ('hadir', 'hadir_penuh'))             as from_visitor,
+			       (select count(*)::int from tyfcb_entries te
+			        where te.giver_id = m.id and te.season_id = $1
+			          and te.status = 'verified' and te.pair_ordinal = 1)         as from_pair
+			from members m
+			where m.season_id = $1 and m.is_active
+		)
+		insert into raffle_tickets (season_id, member_id, sumber)
+		select $1, e.member_id, s.sumber
+		from entitlement e
+		cross join lateral (values
+			('score'::raffle_sumber, e.from_score),
+			('visitor'::raffle_sumber, e.from_visitor),
+			('tyfcb_pair'::raffle_sumber, e.from_pair)
+		) as s(sumber, n)
+		cross join lateral generate_series(1, s.n)
+	`, seasonID); err != nil {
+		return nil, err
 	}
-	return nil
+
+	rows, err := r.db.q(ctx).Query(ctx, `
+		select m.id::text, u.full_name, t.nama_tim, count(rt.id)::int
+		from members m
+		join app_users u on u.id = m.user_id
+		left join teams t on t.id = m.team_id
+		join raffle_tickets rt on rt.member_id = m.id and rt.season_id = $1
+		where m.season_id = $1
+		group by m.id, u.full_name, t.nama_tim
+		order by count(rt.id) desc, u.full_name
+	`, seasonID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	out := []domain.TicketCount{}
+	for rows.Next() {
+		var t domain.TicketCount
+		if err := rows.Scan(&t.MemberID, &t.FullName, &t.NamaTim, &t.Tickets); err != nil {
+			return nil, err
+		}
+		out = append(out, t)
+	}
+	return out, rows.Err()
 }
 
 func (r *PrizeRepo) TicketCounts(ctx context.Context, seasonID string) (map[string]int, error) {
@@ -162,25 +204,6 @@ func (r *PrizeRepo) TicketCounts(ctx context.Context, seasonID string) (map[stri
 		out[id] = n
 	}
 	return out, rows.Err()
-}
-
-// RaffleInputs gathers the three entitlement sources in one round trip.
-func (r *PrizeRepo) RaffleInputs(ctx context.Context, seasonID, memberID string) (int, int, int, error) {
-	var score, visitors, newPairs int
-
-	err := r.db.q(ctx).QueryRow(ctx, `
-		select
-		  (select coalesce(sum(points), 0)::int from score_ledger
-		     where member_id = $1 and season_id = $2),
-		  (select count(*)::int from visitors
-		     where inviter_id = $1 and season_id = $2 and is_void = false
-		       and status_hadir in ('hadir', 'hadir_penuh')),
-		  (select count(*)::int from tyfcb_entries
-		     where giver_id = $1 and season_id = $2
-		       and status = 'verified' and pair_ordinal = 1)
-	`, memberID, seasonID).Scan(&score, &visitors, &newPairs)
-
-	return score, visitors, newPairs, err
 }
 
 var _ domain.PrizeRepository = (*PrizeRepo)(nil)

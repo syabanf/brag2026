@@ -7,6 +7,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
+	"github.com/go-chi/httprate"
 
 	"github.com/ikurniawann/brag2026/backend/internal/config"
 	"github.com/ikurniawann/brag2026/backend/internal/domain"
@@ -27,6 +28,7 @@ type Server struct {
 	leaderboard *usecase.Leaderboard
 	passes      *usecase.ScoringPass
 	prizes      *usecase.Prize
+	network     *usecase.Network
 
 	seasons    domain.SeasonRepository
 	memberRepo domain.MemberRepository
@@ -44,6 +46,7 @@ type Deps struct {
 	Leaderboard *usecase.Leaderboard
 	Passes      *usecase.ScoringPass
 	Prizes      *usecase.Prize
+	Network     *usecase.Network
 	Seasons     domain.SeasonRepository
 	MemberRepo  domain.MemberRepository
 	Events      domain.WeeklyEventRepository
@@ -54,7 +57,7 @@ func NewServer(d Deps) *Server {
 		cfg: d.Config, db: d.DB,
 		auth: d.Auth, members: d.Members, tyfcb: d.Tyfcb,
 		visitors: d.Visitors, catalog: d.Catalog, leaderboard: d.Leaderboard,
-		passes: d.Passes, prizes: d.Prizes,
+		passes: d.Passes, prizes: d.Prizes, network: d.Network,
 		seasons: d.Seasons, memberRepo: d.MemberRepo, events: d.Events,
 	}
 }
@@ -66,6 +69,8 @@ func (s *Server) Router() http.Handler {
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.Timeout(30 * time.Second))
+	r.Use(secureHeaders)
+	r.Use(limitBody)
 
 	// Credentials are cookie-based, so the origin list must be explicit.
 	r.Use(cors.Handler(cors.Options{
@@ -83,7 +88,10 @@ func (s *Server) Router() http.Handler {
 
 		// Public: the shareable leaderboard needs no session.
 		r.Group(func(r chi.Router) {
-			r.Post("/auth/login", s.handleLogin)
+			// Ten attempts per minute per IP: enough for a fumbled password,
+			// far too slow to grind through a password list.
+			r.With(httprate.LimitByIP(10, time.Minute)).
+				Post("/auth/login", s.handleLogin)
 			r.Post("/auth/logout", s.handleLogout)
 			r.Get("/public/leaderboard", s.handleLeaderboard)
 			r.Get("/public/leaderboard/teams/{id}/history", s.handleTeamHistory)
@@ -112,6 +120,8 @@ func (s *Server) Router() http.Handler {
 			r.Get("/events/bank", s.handleEventBank)
 			r.Get("/prizes", s.handleListPrizes)
 			r.Get("/raffle/tickets", s.handleTicketStandings)
+			r.Get("/spheres", s.handleListSpheres)
+			r.Get("/one-to-one", s.handleListOneToOne)
 
 			// Recording a contribution needs a competition profile.
 			r.Group(func(r chi.Router) {
@@ -119,6 +129,7 @@ func (s *Server) Router() http.Handler {
 				r.Post("/tyfcb", s.handleSubmitTyfcb)
 				r.Post("/visitors", s.handleRegisterVisitor)
 				r.Post("/prizes/donate", s.handleDonatePrize)
+				r.Post("/one-to-one", s.handleLogOneToOne)
 			})
 		})
 
@@ -178,6 +189,12 @@ func (s *Server) Router() http.Handler {
 			r.Patch("/prizes/{id}", s.handleSetPrizeStatus)
 			r.Delete("/prizes/{id}", s.handleDeletePrize)
 			r.Post("/raffle/issue", s.handleIssueTickets)
+
+			r.Get("/spheres", s.handleListSpheres)
+			r.Post("/spheres", s.handleCreateSphere)
+			r.Patch("/spheres/{id}/members", s.handleSetSphereMembers)
+			r.Delete("/spheres/{id}", s.handleDeleteSphere)
+			r.Delete("/one-to-one/{id}", s.handleDeleteOneToOne)
 		})
 	})
 

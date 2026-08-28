@@ -68,11 +68,19 @@ func TestTyfcbMultiplier(t *testing.T) {
 
 		{"founder boosts everything", event(EventFounder), TyfcbContext{}, 1.5},
 
-		// Events the schema cannot express must not guess a boost.
-		{"power team stays neutral", event(EventPowerTeam), TyfcbContext{}, 1},
+		{"power team rewards a shared sphere", event(EventPowerTeam),
+			TyfcbContext{SameContactSphere: true}, 1.5},
+		{"power team ignores unrelated trades", event(EventPowerTeam),
+			TyfcbContext{SameContactSphere: false}, 1},
+
+		// Flat-bonus events are settled by a periodic pass, so the PRD keeps
+		// them out of the multiplier entirely.
 		{"one-to-one stays neutral", event(EventOneToOne), TyfcbContext{}, 1},
 		{"high roller stays neutral", event(EventHighRoller), TyfcbContext{}, 1},
 		{"streak stays neutral", event(EventStreak), TyfcbContext{}, 1},
+		// A sphere overlap must not boost weeks that are not POWER_TEAM.
+		{"sphere overlap is ignored outside power team", event(EventUnderdog),
+			TyfcbContext{SameContactSphere: true, ReceiverColorStatus: ColorHijau}, 1},
 		// Visitor-side events must not touch TYFCB.
 		{"visitor blitz stays neutral", event(EventVisitorBlitz), TyfcbContext{}, 1},
 	}

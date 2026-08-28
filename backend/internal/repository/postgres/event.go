@@ -33,11 +33,14 @@ func (r *WeeklyEventRepo) scan(row interface{ Scan(...any) error }) (*domain.Wee
 	return &e, nil
 }
 
-// ActiveOn finds the event covering a date. The schema allows only one event
-// per week, so a date can match at most one row.
+// ActiveOn finds the event covering a date. The unique constraint is on
+// (season, week) rather than on the date range, so an admin who edits dates can
+// leave two windows overlapping. Ordering makes the outcome predictable: the
+// window that started most recently wins, and the later week breaks a tie.
 func (r *WeeklyEventRepo) ActiveOn(ctx context.Context, seasonID string, day time.Time) (*domain.WeeklyEvent, error) {
 	return r.scan(r.db.q(ctx).QueryRow(ctx, weeklyEventSelect+`
 		where season_id = $1 and $2::date between tanggal_mulai and tanggal_selesai
+		order by tanggal_mulai desc, minggu_ke desc
 		limit 1
 	`, seasonID, day))
 }

@@ -124,6 +124,14 @@ func (r *SessionRepo) DeleteAllForUser(ctx context.Context, userID string) error
 	return err
 }
 
+func (r *SessionRepo) DeleteExpired(ctx context.Context) (int64, error) {
+	tag, err := r.db.q(ctx).Exec(ctx, `delete from user_sessions where expires_at <= now()`)
+	if err != nil {
+		return 0, err
+	}
+	return tag.RowsAffected(), nil
+}
+
 type SeasonRepo struct{ db *DB }
 
 func NewSeasonRepo(db *DB) *SeasonRepo { return &SeasonRepo{db: db} }

@@ -13,6 +13,7 @@ type Tyfcb struct {
 	ledger  domain.LedgerRepository
 	seasons domain.SeasonRepository
 	events  domain.WeeklyEventRepository
+	spheres domain.ContactSphereRepository
 	badges  *Badges
 	tx      domain.TxManager
 }
@@ -23,12 +24,13 @@ func NewTyfcb(
 	ledger domain.LedgerRepository,
 	seasons domain.SeasonRepository,
 	events domain.WeeklyEventRepository,
+	spheres domain.ContactSphereRepository,
 	badges *Badges,
 	tx domain.TxManager,
 ) *Tyfcb {
 	return &Tyfcb{
-		tyfcb: tyfcb, members: members, ledger: ledger,
-		seasons: seasons, events: events, badges: badges, tx: tx,
+		tyfcb: tyfcb, members: members, ledger: ledger, seasons: seasons,
+		events: events, spheres: spheres, badges: badges, tx: tx,
 	}
 }
 
@@ -81,11 +83,23 @@ func (u *Tyfcb) Submit(ctx context.Context, in SubmitTyfcbInput, submittedBy *st
 		return nil, err
 	}
 
+	// Only POWER_TEAM cares about the sphere overlap, so the lookup is skipped
+	// entirely in every other week.
+	sameSphere := false
+	if event != nil && event.EventCode == domain.EventPowerTeam {
+		sameSphere, err = u.spheres.SharesSphere(ctx, seller.SeasonID,
+			buyer.KlasifikasiID, seller.KlasifikasiID)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	multiplier := domain.TyfcbMultiplier(event, domain.TyfcbContext{
 		Tanggal:                  in.Tanggal,
 		PairOrdinal:              pairOrdinal,
 		ReceiverClassificationID: seller.KlasifikasiID,
 		ReceiverColorStatus:      seller.ColorStatus,
+		SameContactSphere:        sameSphere,
 	})
 	score := domain.TyfcbScore(in.Nilai, pairOrdinal, multiplier)
 
