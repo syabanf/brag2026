@@ -61,12 +61,14 @@ function TyfcbForm() {
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<{ message: string; tone: "ok" | "error" } | null>(null);
 
+  // Whether the list shows is derived, not stored, so no effect has to clear
+  // it — that would cost an extra render on every keystroke.
+  const canSearch = !buyer && query.trim().length >= 3;
+  const visibleResults = canSearch ? results : [];
+
   // Debounced so typing a name does not fire a request per keystroke.
   useEffect(() => {
-    if (buyer || query.trim().length < 3) {
-      setResults([]);
-      return;
-    }
+    if (!canSearch) return;
 
     const timer = window.setTimeout(() => {
       api.members
@@ -76,7 +78,7 @@ function TyfcbForm() {
     }, 250);
 
     return () => window.clearTimeout(timer);
-  }, [query, buyer]);
+  }, [query, canSearch]);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -156,9 +158,9 @@ function TyfcbForm() {
               />
             </span>
 
-            {results.length > 0 && (
+            {visibleResults.length > 0 && (
               <ul className="mt-2 max-h-56 overflow-y-auto rounded-xl border border-brand-100">
-                {results.map((member) => (
+                {visibleResults.map((member) => (
                   <li key={member.id}>
                     <button
                       type="button"

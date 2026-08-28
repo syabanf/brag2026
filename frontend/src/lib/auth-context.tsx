@@ -1,7 +1,5 @@
 import {
-  createContext,
   useCallback,
-  useContext,
   useEffect,
   useMemo,
   useState,
@@ -9,17 +7,7 @@ import {
 } from "react";
 import { api, ApiError } from "./api";
 import type { Member, User } from "./types";
-
-type AuthState = {
-  user: User | null;
-  member: Member | null;
-  loading: boolean;
-  signIn: (email: string, password: string) => Promise<void>;
-  signOut: () => Promise<void>;
-  refresh: () => Promise<void>;
-};
-
-const AuthContext = createContext<AuthState | null>(null);
+import { AuthContext } from "./auth-store";
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -43,6 +31,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  // Reads the session once on mount. oxlint flags the setState this causes,
+  // but synchronising with an external system is exactly what effects are for
+  // and there is no render-time equivalent for "ask the server who I am".
   useEffect(() => {
     void refresh();
   }, [refresh]);
@@ -67,12 +58,4 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
-}
-
-export function useAuth() {
-  const ctx = useContext(AuthContext);
-  if (!ctx) {
-    throw new Error("useAuth must be used inside <AuthProvider>");
-  }
-  return ctx;
 }

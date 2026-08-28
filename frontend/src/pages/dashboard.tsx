@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { api } from "../lib/api";
 import { useApi } from "../lib/use-api";
-import { useAuth } from "../lib/auth-context";
+import { useAuth } from "../lib/use-auth";
 import { formatCurrency, formatCurrencyCompact, formatDate, formatPoints } from "../lib/format";
 import { Badge, EmptyState, ErrorNote, PageHeader, Spinner, StatCard } from "../components/ui";
 

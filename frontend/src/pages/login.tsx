@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { Eye, EyeOff, Loader2, LogIn, Lock, Mail } from "lucide-react";
-import { useAuth } from "../lib/auth-context";
+import { useAuth } from "../lib/use-auth";
 import { ApiError } from "../lib/api";
 
 export function LoginPage() {

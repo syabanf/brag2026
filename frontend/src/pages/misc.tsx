@@ -3,7 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { ArrowLeft, Award, KeyRound, Loader2, Zap } from "lucide-react";
 import { api, ApiError } from "../lib/api";
 import { useApi } from "../lib/use-api";
-import { useAuth } from "../lib/auth-context";
+import { useAuth } from "../lib/use-auth";
 import { formatCurrency, formatDate, formatPoints } from "../lib/format";
 import { Badge, EmptyState, ErrorNote, PageHeader, Spinner } from "../components/ui";
 

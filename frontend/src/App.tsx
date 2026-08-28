@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
-import { AuthProvider, useAuth } from "./lib/auth-context";
+import { AuthProvider } from "./lib/auth-context";
+import { useAuth } from "./lib/use-auth";
 import { AppShell } from "./components/app-shell";
 import { Spinner } from "./components/ui";
 import { LoginPage } from "./pages/login";
