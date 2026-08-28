@@ -1,0 +1,4 @@
+# Local secrets; .env.example documents the shape.
+.env
+*.test
+/bin/
