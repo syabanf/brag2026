@@ -85,6 +85,38 @@ ElevenLabs audio on a free plan, switch to a premade voice:
 ELEVENLABS_VOICE_ID=EXAVITQu4vr4xnSDxMaL   # Sarah — neutral, clear
 ```
 
+## Docker
+
+The image is self-contained: demo mode needs no database at all, and the
+compose stack adds PostgreSQL with the migrations applied automatically.
+
+```bash
+docker compose up --build
+```
+
+Then open http://localhost:3000. Both entry paths work:
+
+- **Mode Demo** runs on in-memory PGlite inside the app container — the `db`
+  service is not touched.
+- **Masuk dengan akun** queries the `db` service, whose volume is initialised
+  once from `db/local/*.sql` in filename order.
+
+If port 3000 or 5433 is taken:
+
+```bash
+APP_PORT=3200 DB_PORT=5434 docker compose up --build
+```
+
+To hide the demo option in a production image (`NEXT_PUBLIC_*` is inlined at
+build time, so this is a build argument, not a runtime variable):
+
+```bash
+docker build --build-arg NEXT_PUBLIC_DEMO_MODE=false -t brag2026 .
+```
+
+The app runs as a non-root user, exposes `/api/health` for the healthcheck,
+and ships `db/` so PGlite can apply the migrations at runtime.
+
 ### Full local database
 
 For the real thing, create the database and apply the migrations manually

@@ -1,0 +1,42 @@
+services:
+  app:
+    build:
+      context: .
+      args:
+        # NEXT_PUBLIC_* is inlined at build time, so demo availability is a
+        # build argument rather than a runtime variable.
+        NEXT_PUBLIC_DEMO_MODE: "true"
+    ports:
+      # Override with APP_PORT=3200 docker compose up when 3000 is taken.
+      - "${APP_PORT:-3000}:3000"
+    environment:
+      # Real environment variables take precedence over the committed .env,
+      # so this replaces the unix-socket URL meant for local development.
+      DATABASE_URL: postgresql://brag:brag@db:5432/brag_dev
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: brag
+      POSTGRES_PASSWORD: brag
+      POSTGRES_DB: brag_dev
+    ports:
+      - "${DB_PORT:-5433}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      # Applied once, in filename order, the first time the volume is created.
+      - ./db/local:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U brag -d brag_dev"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    restart: unless-stopped
+
+volumes:
+  pgdata:
