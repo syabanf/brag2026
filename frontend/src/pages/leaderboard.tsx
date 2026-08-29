@@ -4,6 +4,7 @@ import { api } from "../lib/api";
 import { useApi } from "../lib/use-api";
 import { formatCurrency, formatCurrencyCompact, formatDate, formatPoints } from "../lib/format";
 import { EmptyState, ErrorNote, PageHeader, Spinner, Tabs } from "../components/ui";
+import { ExportMenu } from "../components/export-menu";
 import type { LedgerEntry, MemberScore, TeamScore } from "../lib/types";
 
 type Tab = "overall" | "tyfcb" | "visitor";
@@ -37,6 +38,7 @@ export function LeaderboardPage({ isPublic = false }: { isPublic?: boolean }) {
       <PageHeader
         title="Leaderboard"
         description="Pantau posisi tim di tiap kategori — poin keseluruhan, nilai TYFCB kolektif, dan jumlah visitor yang berhasil diundang."
+        action={isPublic ? undefined : <ExportMenu report="leaderboard" />}
       />
 
       <Tabs tabs={TABS} active={tab} onChange={setTab} />

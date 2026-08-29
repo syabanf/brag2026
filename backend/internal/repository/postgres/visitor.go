@@ -141,7 +141,7 @@ func (r *VisitorRepo) Create(ctx context.Context, v *domain.Visitor, submittedBy
 func (r *VisitorRepo) UpdateStatusGuarded(ctx context.Context, id string, from, to domain.VisitorStatus) (bool, error) {
 	tag, err := r.db.q(ctx).Exec(ctx, `
 		update visitors set status_hadir = $1::visitor_status
-		where id = $2 and status_hadir = $3::visitor_status
+		where id = $2 and status_hadir = $3::visitor_status and is_void = false
 	`, string(to), id, string(from))
 	if err != nil {
 		return false, err
@@ -154,7 +154,7 @@ func (r *VisitorRepo) UpdateConversionGuarded(ctx context.Context, id string, fr
 		update visitors
 		set is_converted = $1,
 		    tanggal_konversi = case when $1 then current_date else null end
-		where id = $2 and is_converted = $3
+		where id = $2 and is_converted = $3 and is_void = false
 	`, to, id, from)
 	if err != nil {
 		return false, err

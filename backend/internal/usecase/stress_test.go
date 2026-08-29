@@ -74,15 +74,62 @@ type syncTyfcbRepo struct {
 	mu     sync.Mutex
 	entry  domain.TyfcbEntry
 	writes int
+	// readBarrier, when set, holds every reader until the expected number have
+	// arrived. Both callers then carry the same pre-transaction view, which is
+	// the window a stale read actually lives in — reproducing it on purpose
+	// beats hoping the scheduler produces it.
+	readBarrier *barrier
+	// staleRead, when set, is the status FindByID reports regardless of what
+	// the row holds. It stands in for a caller whose read happened before
+	// somebody else's write landed.
+	staleRead *domain.TyfcbStatus
+}
+
+// barrier releases everyone once n participants have arrived.
+type barrier struct {
+	mu      sync.Mutex
+	cond    *sync.Cond
+	n       int
+	arrived int
+}
+
+func newBarrier(n int) *barrier {
+	b := &barrier{n: n}
+	b.cond = sync.NewCond(&b.mu)
+	return b
+}
+
+func (b *barrier) wait() {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	b.arrived++
+	if b.arrived >= b.n {
+		b.cond.Broadcast()
+		return
+	}
+	for b.arrived < b.n {
+		b.cond.Wait()
+	}
 }
 
 func (r *syncTyfcbRepo) FindByID(_ context.Context, id string) (*domain.TyfcbEntry, error) {
 	r.mu.Lock()
-	defer r.mu.Unlock()
 	if id != r.entry.ID {
+		r.mu.Unlock()
 		return nil, nil
 	}
 	copied := r.entry
+	if r.staleRead != nil {
+		copied.Status = *r.staleRead
+	}
+	b := r.readBarrier
+	r.mu.Unlock()
+
+	// Held after the copy, so everyone leaves with the same view.
+	if b != nil {
+		b.wait()
+	}
 	return &copied, nil
 }
 func (r *syncTyfcbRepo) List(context.Context, domain.TyfcbFilter) ([]domain.TyfcbEntry, error) {
@@ -110,15 +157,15 @@ func (r *syncTyfcbRepo) UpdateStatusGuarded(_ context.Context, id string, c doma
 	r.writes++
 	return true, nil
 }
-func (r *syncTyfcbRepo) Void(_ context.Context, id, _ string) error {
+func (r *syncTyfcbRepo) Void(_ context.Context, id string, from domain.TyfcbStatus, _ string) (bool, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	if id != r.entry.ID || r.entry.Status == domain.TyfcbVoid {
-		return domain.Conflict("Entry sudah di-void.")
+	if id != r.entry.ID || r.entry.Status != from {
+		return false, nil
 	}
 	r.entry.Status = domain.TyfcbVoid
 	r.writes++
-	return nil
+	return true, nil
 }
 func (r *syncTyfcbRepo) CountByStatus(context.Context, string) (map[string]int, error) {
 	return nil, nil
@@ -157,7 +204,7 @@ func (r *syncVisitorRepo) Create(context.Context, *domain.Visitor, *string) (str
 func (r *syncVisitorRepo) UpdateStatusGuarded(_ context.Context, id string, from, to domain.VisitorStatus) (bool, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	if id != r.visitor.ID || r.visitor.StatusHadir != from {
+	if id != r.visitor.ID || r.visitor.StatusHadir != from || r.visitor.IsVoid {
 		return false, nil
 	}
 	r.visitor.StatusHadir = to
@@ -166,7 +213,7 @@ func (r *syncVisitorRepo) UpdateStatusGuarded(_ context.Context, id string, from
 func (r *syncVisitorRepo) UpdateConversionGuarded(_ context.Context, id string, from, to bool) (bool, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	if id != r.visitor.ID || r.visitor.IsConverted != from {
+	if id != r.visitor.ID || r.visitor.IsConverted != from || r.visitor.IsVoid {
 		return false, nil
 	}
 	r.visitor.IsConverted = to
@@ -291,14 +338,22 @@ func TestConcurrentVerifyCreditsOnce(t *testing.T) {
 
 // Verify and void racing each other must not leave the entry both credited
 // and voided.
+//
+// The barrier makes both requests read the entry as pending before either
+// writes, which is the interleaving that matters: without a guard on the void,
+// the verification credits the points and the void then closes the entry
+// without reversing them, stranding the score on a written-off transaction.
 func TestConcurrentVerifyAndVoidSettleToZeroOrCredit(t *testing.T) {
 	const score = 120
 
-	repo := &syncTyfcbRepo{entry: domain.TyfcbEntry{
-		ID: "entry-1", SeasonID: testSeasonID,
-		GiverID: "member-buyer", ReceiverID: "member-seller",
-		Status: domain.TyfcbPending, ComputedScore: ptr(score),
-	}}
+	repo := &syncTyfcbRepo{
+		entry: domain.TyfcbEntry{
+			ID: "entry-1", SeasonID: testSeasonID,
+			GiverID: "member-buyer", ReceiverID: "member-seller",
+			Status: domain.TyfcbPending, ComputedScore: ptr(score),
+		},
+		readBarrier: newBarrier(2),
+	}
 	ledger := &syncLedger{}
 
 	uc := NewTyfcb(repo, stressMembers(), ledger, &fakeSeasons{season: season()},
@@ -462,5 +517,51 @@ func TestConcurrentPromotionsToDifferentStatusesStayConsistent(t *testing.T) {
 	if got := ledger.total(); got != want {
 		t.Errorf("the visitor is %q (worth %d) but carries %d points",
 			final.StatusHadir, want, got)
+	}
+}
+
+// A stale read reproduced exactly, with no scheduler involved: the caller
+// decided to void an entry it believed was pending, and by the time its
+// transaction runs the entry has been verified and credited. Acting on that
+// stale view would close the entry without reversing the points — and the
+// ledger is append-only, so nothing would ever take them back.
+func TestVoidRefusesToActOnAStaleStatus(t *testing.T) {
+	const score = 120
+
+	repo := &syncTyfcbRepo{entry: domain.TyfcbEntry{
+		ID: "entry-1", SeasonID: testSeasonID,
+		GiverID: "member-buyer", ReceiverID: "member-seller",
+		Status: domain.TyfcbPending, ComputedScore: ptr(score),
+	}}
+	ledger := &syncLedger{}
+
+	uc := NewTyfcb(repo, stressMembers(), ledger, &fakeSeasons{season: season()},
+		&fakeEvents{}, &fakeSpheres{}, NewBadges(&syncBadgeRepo{}), &syncTx{})
+
+	ctx := context.Background()
+
+	// Somebody else verifies it. This is the write the voider will not see.
+	if err := uc.SetStatus(ctx, "entry-1", domain.TyfcbVerified, "admin", nil); err != nil {
+		t.Fatalf("verify: %v", err)
+	}
+	if got := ledger.total(); got != score {
+		t.Fatalf("setup credited %d, want %d", got, score)
+	}
+
+	// From here on every read reports the status the voider saw earlier,
+	// while the row itself is verified.
+	repo.staleRead = ptr(domain.TyfcbPending)
+
+	err := uc.Void(ctx, "entry-1", "admin")
+	if !errors.Is(err, domain.ErrConflict) {
+		t.Fatalf("void on a stale status returned %v, want a conflict", err)
+	}
+
+	repo.staleRead = nil
+	if got := repo.status(); got != domain.TyfcbVerified {
+		t.Errorf("the entry is %q, want it left verified", got)
+	}
+	if got := ledger.total(); got != score {
+		t.Errorf("the ledger moved to %d; the refused void must write nothing", got)
 	}
 }

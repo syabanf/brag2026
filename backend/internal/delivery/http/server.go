@@ -29,6 +29,7 @@ type Server struct {
 	passes      *usecase.ScoringPass
 	prizes      *usecase.Prize
 	network     *usecase.Network
+	reports     *usecase.Reports
 
 	seasons    domain.SeasonRepository
 	memberRepo domain.MemberRepository
@@ -47,6 +48,7 @@ type Deps struct {
 	Passes      *usecase.ScoringPass
 	Prizes      *usecase.Prize
 	Network     *usecase.Network
+	Reports     *usecase.Reports
 	Seasons     domain.SeasonRepository
 	MemberRepo  domain.MemberRepository
 	Events      domain.WeeklyEventRepository
@@ -57,7 +59,7 @@ func NewServer(d Deps) *Server {
 		cfg: d.Config, db: d.DB,
 		auth: d.Auth, members: d.Members, tyfcb: d.Tyfcb,
 		visitors: d.Visitors, catalog: d.Catalog, leaderboard: d.Leaderboard,
-		passes: d.Passes, prizes: d.Prizes, network: d.Network,
+		passes: d.Passes, prizes: d.Prizes, network: d.Network, reports: d.Reports,
 		seasons: d.Seasons, memberRepo: d.MemberRepo, events: d.Events,
 	}
 }
@@ -74,9 +76,12 @@ func (s *Server) Router() http.Handler {
 
 	// Credentials are cookie-based, so the origin list must be explicit.
 	r.Use(cors.Handler(cors.Options{
-		AllowedOrigins:   s.cfg.AllowedOrigins,
-		AllowedMethods:   []string{"GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"},
-		AllowedHeaders:   []string{"Accept", "Content-Type", "X-Requested-With"},
+		AllowedOrigins: s.cfg.AllowedOrigins,
+		AllowedMethods: []string{"GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"},
+		AllowedHeaders: []string{"Accept", "Content-Type", "X-Requested-With"},
+		// Without this the browser hides the header on a cross-origin response,
+		// and a downloaded export loses the filename the server chose for it.
+		ExposedHeaders:   []string{"Content-Disposition"},
 		AllowCredentials: true,
 		MaxAge:           300,
 	}))
@@ -120,6 +125,9 @@ func (s *Server) Router() http.Handler {
 			r.Get("/events/bank", s.handleEventBank)
 			r.Get("/prizes", s.handleListPrizes)
 			r.Get("/raffle/tickets", s.handleTicketStandings)
+			// Members may take the leaderboard away with them; the other
+			// reports carry personal data and stay under /admin.
+			r.Get("/export/leaderboard", s.handleExportLeaderboard)
 			r.Get("/spheres", s.handleListSpheres)
 			r.Get("/one-to-one", s.handleListOneToOne)
 
@@ -181,6 +189,8 @@ func (s *Server) Router() http.Handler {
 
 			// Periodic settlements. Both are idempotent per period, so the
 			// committee can re-run them safely.
+			r.Get("/export/{report}", s.handleExport)
+
 			r.Post("/passes/weekly", s.handleWeeklyPass)
 			r.Post("/passes/daily", s.handleDailyPass)
 

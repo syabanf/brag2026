@@ -72,6 +72,7 @@ func main() {
 	passUC := usecase.NewScoringPass(passRepo, ledger, events, oneToOneRepo, seasons, badgeUC, db)
 	prizeUC := usecase.NewPrize(prizeRepo, members, seasons, badgeUC, db)
 	networkUC := usecase.NewNetwork(sphereRepo, oneToOneRepo, members, seasons, db)
+	reportsUC := usecase.NewReports(ledger, members, tyfcbRepo, visitorRepo, prizeRepo, seasons)
 	leaderboardUC := usecase.NewLeaderboard(ledger, members, tyfcbRepo, visitorRepo, boosters, badges, activityRepo, seasons)
 
 	server := delivery.NewServer(delivery.Deps{
@@ -86,6 +87,7 @@ func main() {
 		Passes:      passUC,
 		Prizes:      prizeUC,
 		Network:     networkUC,
+		Reports:     reportsUC,
 		Seasons:     seasons,
 		MemberRepo:  members,
 		Events:      events,

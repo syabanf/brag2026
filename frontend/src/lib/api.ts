@@ -90,6 +90,24 @@ const patch = <T>(path: string, body?: unknown) =>
   request<T>(path, { method: "PATCH", body: body ? JSON.stringify(body) : undefined });
 const del = <T>(path: string) => request<T>(path, { method: "DELETE" });
 
+/**
+ * Absolute URL of an export. It is built rather than fetched through `request`
+ * because the response is a file, not JSON — the caller reads it as a blob.
+ * Reports other than the leaderboard live under /admin.
+ */
+export function exportUrl(
+  report: string,
+  params: Record<string, string | number | boolean | undefined> = {},
+) {
+  const scope = report === "leaderboard" ? "/export/leaderboard" : `/admin/export/${report}`;
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== "") search.set(key, String(value));
+  }
+  const rendered = search.toString();
+  return `${BASE}/api${scope}${rendered ? `?${rendered}` : ""}`;
+}
+
 export const api = {
   auth: {
     login: (email: string, password: string) =>

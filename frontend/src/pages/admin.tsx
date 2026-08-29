@@ -6,6 +6,7 @@ import { useApi } from "../lib/use-api";
 import { formatCurrency, formatDate } from "../lib/format";
 import { Badge, EmptyState, ErrorNote, PageHeader, Spinner, Tabs } from "../components/ui";
 import { FilterBar, FilterSelect, Pagination, SearchField } from "../components/list-controls";
+import { ExportMenu } from "../components/export-menu";
 import type { Member, TyfcbEntry, Visitor } from "../lib/types";
 
 // ── TYFCB verification ────────────────────────────────────────────────────
@@ -61,6 +62,7 @@ export function AdminTyfcbPage() {
         eyebrow="Admin Area"
         title="Verifikasi TYFCB"
         description="Approve atau reject submission TYFCB dari member. Poin hanya masuk ledger saat berstatus verified."
+        action={<ExportMenu report="tyfcb" params={{ status: tab, q: search, team_id: teamID }} />}
       />
 
       <Tabs
@@ -331,6 +333,7 @@ export function AdminVisitorsPage() {
         eyebrow="Admin Area"
         title="Kelola Visitor"
         description="Poin visitor bertingkat: hadir 20, hadir penuh 50, konversi +100. Menurunkan status membalik poinnya."
+        action={<ExportMenu report="visitors" params={{ status: tab, q: search, converted }} />}
       />
 
       <Tabs
@@ -476,10 +479,13 @@ export function AdminMembersPage() {
         title="Kelola Member"
         description={`${data?.total ?? 0} member terdaftar di season ini.`}
         action={
-          <button type="button" onClick={() => setCreating(true)} className="btn-primary shrink-0">
-            <Plus className="h-4 w-4" />
-            Tambah
-          </button>
+          <div className="flex shrink-0 items-center gap-2">
+            <ExportMenu report="members" params={{ q: search, team_id: teamID }} />
+            <button type="button" onClick={() => setCreating(true)} className="btn-primary shrink-0">
+              <Plus className="h-4 w-4" />
+              Tambah
+            </button>
+          </div>
         }
       />
 

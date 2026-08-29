@@ -86,7 +86,11 @@ type TyfcbRepository interface {
 	// admins verifying the same entry would otherwise both credit it, and the
 	// ledger has no way to take points back except another entry.
 	UpdateStatusGuarded(ctx context.Context, id string, change TyfcbStatusChange) (bool, error)
-	Void(ctx context.Context, id, voidedBy string) error
+	// Void is guarded on `from` for the same reason UpdateStatusGuarded is:
+	// the caller decided whether to reverse points based on the status it
+	// read, so voiding a row that has since moved would either strand the
+	// points or take back some that were never given.
+	Void(ctx context.Context, id string, from TyfcbStatus, voidedBy string) (bool, error)
 	CountByStatus(ctx context.Context, seasonID string) (map[string]int, error)
 }
 
@@ -119,8 +123,9 @@ type VisitorRepository interface {
 	List(ctx context.Context, f VisitorFilter) ([]Visitor, error)
 	ListPaged(ctx context.Context, f VisitorFilter) ([]Visitor, int, error)
 	Create(ctx context.Context, v *Visitor, submittedBy *string) (string, error)
-	// UpdateStatusGuarded only succeeds when the row still holds `from`, which
-	// keeps concurrent updates from awarding points twice.
+	// UpdateStatusGuarded only succeeds when the row still holds `from` and is
+	// not void, which keeps concurrent updates from awarding points twice or
+	// crediting a visitor somebody has just written off.
 	UpdateStatusGuarded(ctx context.Context, id string, from, to VisitorStatus) (bool, error)
 	UpdateConversionGuarded(ctx context.Context, id string, from, to bool) (bool, error)
 	Void(ctx context.Context, id, voidedBy string) error

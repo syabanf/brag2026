@@ -273,7 +273,16 @@ func (u *Tyfcb) Void(ctx context.Context, id, actorID string) error {
 				return err
 			}
 		}
-		return u.tyfcb.Void(ctx, id, actorID)
+		ok, err := u.tyfcb.Void(ctx, id, entry.Status, actorID)
+		if err != nil {
+			return err
+		}
+		if !ok {
+			// Someone moved the entry between the read above and here. The
+			// reversal appended in this transaction rolls back with it.
+			return domain.Conflict("Status entry sudah berubah. Muat ulang halaman.")
+		}
+		return nil
 	})
 }
 

@@ -18,7 +18,10 @@ echo "── concurrency and hardening suite (-race) ─────────
 cd "$root/backend"
 # -count=1 defeats the cache: a race that only shows sometimes is exactly the
 # kind a cached PASS would hide.
-go test -race -count=1 ./...
+# -count=5 because the concurrency tests depend on an interleaving: the
+# verify-versus-void race took a dozen runs to surface the first time, and a
+# single pass would have shipped it.
+go test -race -count=5 ./...
 
 if [[ "${1:-}" != "--load" ]]; then
   echo

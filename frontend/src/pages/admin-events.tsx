@@ -5,6 +5,7 @@ import { toast } from "../lib/toast-store";
 import { useApi } from "../lib/use-api";
 import { formatDate, today } from "../lib/format";
 import { EmptyState, ErrorNote, PageHeader, Spinner, Tabs } from "../components/ui";
+import { ExportMenu } from "../components/export-menu";
 import type { PassResult } from "../lib/types";
 
 type Tab = "schedule" | "passes" | "spheres" | "prizes";
@@ -331,6 +332,10 @@ function PrizeAdmin() {
           Menghitung ulang hak tiket setiap anggota dari poin, visitor hadir, dan TYFCB ke pasangan
           baru. Menulis ulang, bukan menambah — aman dijalankan berkali-kali.
         </p>
+
+        <div className="mt-3">
+          <ExportMenu report="prizes" label="Export hadiah & tiket" />
+        </div>
         <button
           type="button"
           disabled={issuing}

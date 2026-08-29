@@ -130,11 +130,13 @@ func (f *fakeTyfcbRepo) UpdateStatusGuarded(_ context.Context, id string, c doma
 	e.RejectionReason = c.Reason
 	return true, nil
 }
-func (f *fakeTyfcbRepo) Void(_ context.Context, id, _ string) error {
-	if e, ok := f.entries[id]; ok {
-		e.Status = domain.TyfcbVoid
+func (f *fakeTyfcbRepo) Void(_ context.Context, id string, from domain.TyfcbStatus, _ string) (bool, error) {
+	e, ok := f.entries[id]
+	if !ok || e.Status != from {
+		return false, nil
 	}
-	return nil
+	e.Status = domain.TyfcbVoid
+	return true, nil
 }
 func (f *fakeTyfcbRepo) CountByStatus(context.Context, string) (map[string]int, error) {
 	return nil, nil

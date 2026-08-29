@@ -182,19 +182,19 @@ func (r *TyfcbRepo) UpdateStatusGuarded(ctx context.Context, id string, c domain
 	return tag.RowsAffected() == 1, nil
 }
 
-func (r *TyfcbRepo) Void(ctx context.Context, id, voidedBy string) error {
+// Void writes only while the row still holds `from`. A verification that
+// landed in between would otherwise leave the entry void with its points still
+// on the board, and the ledger has no way to take them back except another row.
+func (r *TyfcbRepo) Void(ctx context.Context, id string, from domain.TyfcbStatus, voidedBy string) (bool, error) {
 	tag, err := r.db.q(ctx).Exec(ctx, `
 		update tyfcb_entries
 		set status = 'void'::tyfcb_status, voided_by = $1, voided_at = now()
-		where id = $2 and status <> 'void'
-	`, voidedBy, id)
+		where id = $2 and status = $3::tyfcb_status
+	`, voidedBy, id, string(from))
 	if err != nil {
-		return err
+		return false, err
 	}
-	if tag.RowsAffected() == 0 {
-		return domain.Conflict("Entry sudah di-void.")
-	}
-	return nil
+	return tag.RowsAffected() == 1, nil
 }
 
 func (r *TyfcbRepo) CountByStatus(ctx context.Context, seasonID string) (map[string]int, error) {
