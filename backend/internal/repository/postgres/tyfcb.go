@@ -3,7 +3,6 @@ package postgres
 import (
 	"context"
 	"strconv"
-	"time"
 
 	"github.com/jackc/pgx/v5"
 
@@ -168,14 +167,15 @@ func (r *TyfcbRepo) Create(ctx context.Context, e *domain.TyfcbEntry, submittedB
 	return id, err
 }
 
-// UpdateStatusGuarded only writes when the row still holds `from`. A losing
+// UpdateStatusGuarded only writes when the row still holds `From`. A losing
 // concurrent request gets false rather than crediting the entry a second time.
-func (r *TyfcbRepo) UpdateStatusGuarded(ctx context.Context, id string, from, to domain.TyfcbStatus, verifiedBy *string, verifiedAt *time.Time) (bool, error) {
+func (r *TyfcbRepo) UpdateStatusGuarded(ctx context.Context, id string, c domain.TyfcbStatusChange) (bool, error) {
 	tag, err := r.db.q(ctx).Exec(ctx, `
 		update tyfcb_entries
-		set status = $1::tyfcb_status, verified_by = $2, verified_at = $3
-		where id = $4 and status = $5::tyfcb_status
-	`, string(to), verifiedBy, verifiedAt, id, string(from))
+		set status = $1::tyfcb_status, verified_by = $2, verified_at = $3,
+		    rejection_reason = $4
+		where id = $5 and status = $6::tyfcb_status
+	`, string(c.To), c.VerifiedBy, c.VerifiedAt, c.Reason, id, string(c.From))
 	if err != nil {
 		return false, err
 	}

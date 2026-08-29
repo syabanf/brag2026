@@ -265,3 +265,14 @@ func (s *Server) handleIssueTickets(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, tickets)
 }
+
+// handleDrawPrize runs the lottery for one prize and returns the winner, so
+// the admin screen can show the name without a second round trip.
+func (s *Server) handleDrawPrize(w http.ResponseWriter, r *http.Request) {
+	prize, err := s.prizes.Draw(r.Context(), chi.URLParam(r, "id"))
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, prize)
+}

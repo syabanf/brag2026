@@ -103,8 +103,12 @@ export const api = {
   dashboard: () => get<Dashboard>("/dashboard"),
 
   leaderboard: {
-    get: () => get<Leaderboard>("/leaderboard"),
-    public: () => get<Leaderboard>("/public/leaderboard"),
+    get: (kategori?: string) =>
+      get<Leaderboard>(`/leaderboard${kategori && kategori !== "overall" ? `?kategori=${kategori}` : ""}`),
+    public: (kategori?: string) =>
+      get<Leaderboard>(
+        `/public/leaderboard${kategori && kategori !== "overall" ? `?kategori=${kategori}` : ""}`,
+      ),
     teamHistory: (teamId: string, kategori?: string) =>
       get<LedgerEntry[]>(
         `/leaderboard/teams/${teamId}/history${kategori ? `?kategori=${kategori}` : ""}`,
@@ -220,8 +224,8 @@ export const api = {
     },
     tyfcb: {
       list: (query: TyfcbQuery = {}) => get<TyfcbPage>(`/admin/tyfcb${qs(query)}`),
-      setStatus: (id: string, status: string) =>
-        patch<{ ok: boolean }>(`/admin/tyfcb/${id}`, { status }),
+      setStatus: (id: string, status: string, reason?: string) =>
+        patch<{ ok: boolean }>(`/admin/tyfcb/${id}`, { status, reason: reason ?? null }),
     },
     visitors: {
       list: (query: VisitorQuery = {}) => get<Paged<Visitor>>(`/admin/visitors${qs(query)}`),
@@ -248,6 +252,7 @@ export const api = {
     },
     raffle: {
       issue: () => post<TicketSummary[]>("/admin/raffle/issue"),
+      draw: (prizeId: string) => post<Prize>(`/admin/raffle/draw/${prizeId}`),
     },
     spheres: {
       list: () => get<ContactSphere[]>("/admin/spheres"),

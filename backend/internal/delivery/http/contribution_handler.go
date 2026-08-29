@@ -152,7 +152,8 @@ func (s *Server) handleListTyfcb(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleSetTyfcbStatus(w http.ResponseWriter, r *http.Request) {
 	var body struct {
-		Status string `json:"status"`
+		Status string  `json:"status"`
+		Reason *string `json:"reason"`
 	}
 	if err := decode(r, &body); err != nil {
 		fail(w, err)
@@ -162,7 +163,7 @@ func (s *Server) handleSetTyfcbStatus(w http.ResponseWriter, r *http.Request) {
 	user := userFrom(r.Context())
 	id := chi.URLParam(r, "id")
 
-	if err := s.tyfcb.SetStatus(r.Context(), id, domain.TyfcbStatus(body.Status), user.ID); err != nil {
+	if err := s.tyfcb.SetStatus(r.Context(), id, domain.TyfcbStatus(body.Status), user.ID, body.Reason); err != nil {
 		fail(w, err)
 		return
 	}

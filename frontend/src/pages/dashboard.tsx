@@ -130,21 +130,31 @@ export function DashboardPage() {
           ) : (
             <ul className="divide-y divide-brand-50">
               {data.recent_tyfcb.map((entry) => (
-                <li key={entry.id} className="flex items-center justify-between gap-3 py-2.5">
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-bold text-ink">
-                      Pembeli: {entry.giver_name ?? "—"}
-                    </p>
-                    <p className="num text-xs text-muted">
-                      {formatCurrency(entry.nilai)} · {formatDate(entry.tanggal)}
-                    </p>
+                <li key={entry.id} className="py-2.5">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-bold text-ink">
+                        Pembeli: {entry.giver_name ?? "—"}
+                      </p>
+                      <p className="num text-xs text-muted">
+                        {formatCurrency(entry.nilai)} · {formatDate(entry.tanggal)}
+                      </p>
+                    </div>
+                    {entry.status === "verified" && entry.computed_score != null ? (
+                      <span className="num shrink-0 rounded-full bg-emerald-50 px-2.5 py-0.5 text-[0.68rem] font-black text-emerald-700">
+                        +{entry.computed_score} pts
+                      </span>
+                    ) : (
+                      <Badge value={entry.status} />
+                    )}
                   </div>
-                  {entry.status === "verified" && entry.computed_score != null ? (
-                    <span className="num shrink-0 rounded-full bg-emerald-50 px-2.5 py-0.5 text-[0.68rem] font-black text-emerald-700">
-                      +{entry.computed_score} pts
-                    </span>
-                  ) : (
-                    <Badge value={entry.status} />
+
+                  {/* Why it was turned down, in the one place the member
+                      actually looks after submitting. */}
+                  {entry.status === "rejected" && entry.rejection_reason && (
+                    <p className="mt-2 rounded-xl bg-red-50 px-3 py-2 text-xs leading-relaxed text-red-700">
+                      {entry.rejection_reason}
+                    </p>
                   )}
                 </li>
               ))}

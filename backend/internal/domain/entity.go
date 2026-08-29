@@ -283,3 +283,15 @@ type OneToOne struct {
 	Catatan     *string   `json:"catatan"`
 	CreatedAt   time.Time `json:"created_at"`
 }
+
+// TyfcbStatusChange is one moderation decision. It travels as a value because
+// the fields go together: who decided, when, and — for a rejection — why.
+type TyfcbStatusChange struct {
+	From, To   TyfcbStatus
+	VerifiedBy *string
+	VerifiedAt *time.Time
+	// Reason is set when rejecting and cleared otherwise, so an entry that is
+	// rejected and later approved does not keep an explanation that no longer
+	// describes it.
+	Reason *string
+}

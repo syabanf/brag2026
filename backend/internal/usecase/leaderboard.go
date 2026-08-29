@@ -56,7 +56,10 @@ func (u *Leaderboard) Standings(ctx context.Context) ([]domain.TeamScore, error)
 	return u.ledger.TeamScores(ctx, season.ID)
 }
 
-func (u *Leaderboard) IndividualStandings(ctx context.Context, limit int) ([]domain.MemberScore, error) {
+// IndividualStandings ranks members by one category. The list is truncated, so
+// the ordering has to happen in the query: sorting a top-50-by-overall on the
+// client would answer "who leads on visitors" with the wrong fifty people.
+func (u *Leaderboard) IndividualStandings(ctx context.Context, kategori domain.ScoreCategory, limit int) ([]domain.MemberScore, error) {
 	season, err := u.season(ctx)
 	if err != nil {
 		return nil, err
@@ -64,7 +67,7 @@ func (u *Leaderboard) IndividualStandings(ctx context.Context, limit int) ([]dom
 	if limit <= 0 {
 		limit = 50
 	}
-	return u.ledger.MemberScores(ctx, season.ID, limit)
+	return u.ledger.MemberScores(ctx, season.ID, kategori, limit)
 }
 
 // TeamHistory backs the drill-down dialog on a leaderboard row. kategori is

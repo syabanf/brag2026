@@ -39,7 +39,7 @@ func tyfcbFixture(t *testing.T, status domain.TyfcbStatus, score int) (*Tyfcb, *
 func TestVerifyCreditsTheGiver(t *testing.T) {
 	uc, ledger, repo, tx := tyfcbFixture(t, domain.TyfcbPending, 80)
 
-	if err := uc.SetStatus(context.Background(), "entry-1", domain.TyfcbVerified, "admin"); err != nil {
+	if err := uc.SetStatus(context.Background(), "entry-1", domain.TyfcbVerified, "admin", nil); err != nil {
 		t.Fatalf("verify: %v", err)
 	}
 
@@ -71,7 +71,8 @@ func TestVerifyCreditsTheGiver(t *testing.T) {
 func TestRejectingAVerifiedEntryReversesIt(t *testing.T) {
 	uc, ledger, _, _ := tyfcbFixture(t, domain.TyfcbVerified, 80)
 
-	if err := uc.SetStatus(context.Background(), "entry-1", domain.TyfcbRejected, "admin"); err != nil {
+	if err := uc.SetStatus(context.Background(), "entry-1", domain.TyfcbRejected, "admin",
+		ptr("Bukti transaksi tidak terbaca.")); err != nil {
 		t.Fatalf("reject: %v", err)
 	}
 
@@ -86,10 +87,11 @@ func TestVerifyThenRejectNetsToZero(t *testing.T) {
 	uc, ledger, _, _ := tyfcbFixture(t, domain.TyfcbPending, 80)
 	ctx := context.Background()
 
-	if err := uc.SetStatus(ctx, "entry-1", domain.TyfcbVerified, "admin"); err != nil {
+	if err := uc.SetStatus(ctx, "entry-1", domain.TyfcbVerified, "admin", nil); err != nil {
 		t.Fatalf("verify: %v", err)
 	}
-	if err := uc.SetStatus(ctx, "entry-1", domain.TyfcbRejected, "admin"); err != nil {
+	if err := uc.SetStatus(ctx, "entry-1", domain.TyfcbRejected, "admin",
+		ptr("Nilai tidak sesuai bukti.")); err != nil {
 		t.Fatalf("reject: %v", err)
 	}
 
@@ -105,7 +107,8 @@ func TestVerifyThenRejectNetsToZero(t *testing.T) {
 func TestPendingToRejectedWritesNothing(t *testing.T) {
 	uc, ledger, _, _ := tyfcbFixture(t, domain.TyfcbPending, 80)
 
-	if err := uc.SetStatus(context.Background(), "entry-1", domain.TyfcbRejected, "admin"); err != nil {
+	if err := uc.SetStatus(context.Background(), "entry-1", domain.TyfcbRejected, "admin",
+		ptr("Bukti transaksi tidak terbaca.")); err != nil {
 		t.Fatalf("reject: %v", err)
 	}
 
@@ -130,7 +133,7 @@ func TestSetStatusRejectsNoOpsAndUnknownStates(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			uc, ledger, _, _ := tyfcbFixture(t, c.from, 80)
 
-			err := uc.SetStatus(context.Background(), "entry-1", c.to, "admin")
+			err := uc.SetStatus(context.Background(), "entry-1", c.to, "admin", nil)
 			if !errors.Is(err, c.wantErr) {
 				t.Errorf("got %v, want %v", err, c.wantErr)
 			}
@@ -218,5 +221,72 @@ func TestSubmitRefusesSelfDealing(t *testing.T) {
 
 	if !errors.Is(err, domain.ErrInvalidInput) {
 		t.Errorf("got %v, want an invalid-input error", err)
+	}
+}
+
+// A rejection the member cannot understand is the one they come back to ask
+// about, so the reason is required rather than merely accepted.
+func TestRejectRequiresAReason(t *testing.T) {
+	cases := []struct {
+		name   string
+		reason *string
+	}{
+		{"missing", nil},
+		{"empty", ptr("")},
+		{"only whitespace", ptr("   \t\n")},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			uc, ledger, repo, _ := tyfcbFixture(t, domain.TyfcbPending, 80)
+
+			err := uc.SetStatus(context.Background(), "entry-1", domain.TyfcbRejected, "admin", c.reason)
+			if !errors.Is(err, domain.ErrInvalidInput) {
+				t.Fatalf("got %v, want an invalid-input error", err)
+			}
+			// The refusal happens before anything is written.
+			if repo.entries["entry-1"].Status != domain.TyfcbPending {
+				t.Error("the entry moved despite the refusal")
+			}
+			if len(ledger.entries) != 0 {
+				t.Error("the ledger was touched despite the refusal")
+			}
+		})
+	}
+}
+
+func TestRejectStoresTheReasonTrimmed(t *testing.T) {
+	uc, _, repo, _ := tyfcbFixture(t, domain.TyfcbPending, 80)
+
+	err := uc.SetStatus(context.Background(), "entry-1", domain.TyfcbRejected, "admin",
+		ptr("  Bukti transaksi tidak terbaca.  "))
+	if err != nil {
+		t.Fatalf("reject: %v", err)
+	}
+
+	got := repo.entries["entry-1"].RejectionReason
+	if got == nil {
+		t.Fatal("the reason was dropped")
+	}
+	if *got != "Bukti transaksi tidak terbaca." {
+		t.Errorf("stored %q, want it trimmed", *got)
+	}
+}
+
+// An entry that is rejected and later verified must not keep an explanation
+// that no longer describes it.
+func TestApprovingClearsAnEarlierRejectionReason(t *testing.T) {
+	uc, _, repo, _ := tyfcbFixture(t, domain.TyfcbPending, 80)
+	ctx := context.Background()
+
+	if err := uc.SetStatus(ctx, "entry-1", domain.TyfcbRejected, "admin", ptr("Salah nominal.")); err != nil {
+		t.Fatalf("reject: %v", err)
+	}
+	if err := uc.SetStatus(ctx, "entry-1", domain.TyfcbVerified, "admin", nil); err != nil {
+		t.Fatalf("verify: %v", err)
+	}
+
+	if got := repo.entries["entry-1"].RejectionReason; got != nil {
+		t.Errorf("the entry is verified but still says %q", *got)
 	}
 }

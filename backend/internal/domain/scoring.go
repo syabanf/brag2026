@@ -82,3 +82,40 @@ const (
 	BonusLevelUpSmall = 75
 	BonusLevelUpLarge = 150
 )
+
+// ScoreCategory selects which of a season's running totals to rank by. The
+// spec asks for six leaderboards: these three, each for teams and members.
+type ScoreCategory string
+
+const (
+	ScoreOverall ScoreCategory = "overall"
+	ScoreTyfcb   ScoreCategory = "tyfcb"
+	ScoreVisitor ScoreCategory = "visitor"
+)
+
+// ParseScoreCategory falls back to overall, since an unrecognised tab in a URL
+// should show the main board rather than an error page.
+func ParseScoreCategory(v string) ScoreCategory {
+	switch ScoreCategory(v) {
+	case ScoreTyfcb:
+		return ScoreTyfcb
+	case ScoreVisitor:
+		return ScoreVisitor
+	default:
+		return ScoreOverall
+	}
+}
+
+// Column is the ledger total this category ranks by. It returns a fixed
+// identifier from this package, never anything derived from a request, so it
+// is safe to interpolate into a query.
+func (c ScoreCategory) Column() string {
+	switch c {
+	case ScoreTyfcb:
+		return "score_tyfcb"
+	case ScoreVisitor:
+		return "score_visitor"
+	default:
+		return "score_overall"
+	}
+}

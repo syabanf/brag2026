@@ -137,6 +137,56 @@ func (u *Prize) SetStatus(ctx context.Context, id, status string, pemenangID *st
 	return nil
 }
 
+// Draw picks the winner of a lottery-allocated prize. It is the payoff of the
+// whole ticket system, and it is one-way: once a prize has a winner this
+// refuses rather than quietly re-rolling, because the first result has
+// already been announced in the room.
+func (u *Prize) Draw(ctx context.Context, prizeID string) (*domain.Prize, error) {
+	season, err := u.season(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	prize, err := u.prizes.FindByID(ctx, prizeID)
+	if err != nil {
+		return nil, err
+	}
+	if prize == nil || prize.SeasonID != season.ID {
+		return nil, domain.NotFound("Hadiah tidak ditemukan.")
+	}
+	if prize.Alokasi != "undian" {
+		return nil, domain.Invalid("Hadiah ini dialokasikan per kategori, bukan diundi.")
+	}
+	// The winner check comes first: a drawn prize is already "awarded", and
+	// reporting that as "not approved yet" would send the admin looking for
+	// the wrong problem.
+	if prize.PemenangID != nil {
+		return nil, domain.Conflict("Hadiah ini sudah diundi.")
+	}
+	if prize.Status != "approved" {
+		return nil, domain.Invalid("Hadiah harus berstatus approved sebelum diundi.")
+	}
+
+	won, err := u.prizes.DrawWinner(ctx, season.ID, prizeID)
+	if err != nil {
+		return nil, err
+	}
+	if won == nil {
+		// Either no tickets exist yet or another admin drew first. Re-reading
+		// tells the two apart, and the difference matters: one is fixed by
+		// issuing tickets, the other by refreshing the page.
+		current, err := u.prizes.FindByID(ctx, prizeID)
+		if err != nil {
+			return nil, err
+		}
+		if current != nil && current.PemenangID != nil {
+			return nil, domain.Conflict("Hadiah ini sudah diundi.")
+		}
+		return nil, domain.Invalid("Belum ada tiket undian. Terbitkan tiket lebih dulu.")
+	}
+	return won, nil
+}
+
 func (u *Prize) Delete(ctx context.Context, id string) error {
 	return u.prizes.Delete(ctx, id)
 }

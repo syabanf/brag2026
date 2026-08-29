@@ -207,3 +207,40 @@ func (r *PrizeRepo) TicketCounts(ctx context.Context, seasonID string) (map[stri
 }
 
 var _ domain.PrizeRepository = (*PrizeRepo)(nil)
+
+// DrawWinner is deliberately one statement. Reading a random ticket and then
+// writing the winner would leave a window where a second draw picks a
+// different member and overwrites the first.
+func (r *PrizeRepo) DrawWinner(ctx context.Context, seasonID, prizeID string) (*domain.Prize, error) {
+	row := r.db.q(ctx).QueryRow(ctx, `
+		with pick as (
+			select member_id
+			from raffle_tickets
+			where season_id = $1
+			order by random()
+			limit 1
+		)
+		update prize_pool p
+		set pemenang_id = (select member_id from pick),
+		    status = 'awarded'::prize_status
+		where p.id = $2
+		  and p.season_id = $1
+		  and p.pemenang_id is null
+		  and exists (select 1 from pick)
+		returning p.id
+	`, seasonID, prizeID)
+
+	var id string
+	if err := row.Scan(&id); err != nil {
+		if noRows(err) {
+			// Nothing was written. The caller has already established that the
+			// prize exists and is drawable, so this is an empty ticket pool or
+			// a concurrent draw that got there first.
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	// Re-read so the caller gets the winner's name, not just their id.
+	return r.FindByID(ctx, id)
+}

@@ -69,7 +69,7 @@ func (f *fakeLedger) Append(_ context.Context, e *domain.LedgerEntry) error {
 func (f *fakeLedger) TeamScores(context.Context, string) ([]domain.TeamScore, error) {
 	return nil, nil
 }
-func (f *fakeLedger) MemberScores(context.Context, string, int) ([]domain.MemberScore, error) {
+func (f *fakeLedger) MemberScores(context.Context, string, domain.ScoreCategory, int) ([]domain.MemberScore, error) {
 	return nil, nil
 }
 func (f *fakeLedger) MemberScore(context.Context, string, string) (*domain.MemberScore, error) {
@@ -121,12 +121,13 @@ func (f *fakeTyfcbRepo) Create(_ context.Context, e *domain.TyfcbEntry, _ *strin
 	f.created = append(f.created, *e)
 	return "entry-new", nil
 }
-func (f *fakeTyfcbRepo) UpdateStatusGuarded(_ context.Context, id string, from, to domain.TyfcbStatus, _ *string, _ *time.Time) (bool, error) {
+func (f *fakeTyfcbRepo) UpdateStatusGuarded(_ context.Context, id string, c domain.TyfcbStatusChange) (bool, error) {
 	e, ok := f.entries[id]
-	if !ok || e.Status != from {
+	if !ok || e.Status != c.From {
 		return false, nil
 	}
-	e.Status = to
+	e.Status = c.To
+	e.RejectionReason = c.Reason
 	return true, nil
 }
 func (f *fakeTyfcbRepo) Void(_ context.Context, id, _ string) error {

@@ -5,7 +5,6 @@ import (
 	"errors"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/ikurniawann/brag2026/backend/internal/domain"
 )
@@ -33,7 +32,7 @@ func (l *syncLedger) Append(_ context.Context, e *domain.LedgerEntry) error {
 func (l *syncLedger) TeamScores(context.Context, string) ([]domain.TeamScore, error) {
 	return nil, nil
 }
-func (l *syncLedger) MemberScores(context.Context, string, int) ([]domain.MemberScore, error) {
+func (l *syncLedger) MemberScores(context.Context, string, domain.ScoreCategory, int) ([]domain.MemberScore, error) {
 	return nil, nil
 }
 func (l *syncLedger) MemberScore(context.Context, string, string) (*domain.MemberScore, error) {
@@ -101,13 +100,13 @@ func (r *syncTyfcbRepo) Create(context.Context, *domain.TyfcbEntry, *string) (st
 
 // UpdateStatusGuarded refuses the write when the row has already moved on,
 // which is what `where id = $n and status = $m` does in Postgres.
-func (r *syncTyfcbRepo) UpdateStatusGuarded(_ context.Context, id string, from, to domain.TyfcbStatus, _ *string, _ *time.Time) (bool, error) {
+func (r *syncTyfcbRepo) UpdateStatusGuarded(_ context.Context, id string, c domain.TyfcbStatusChange) (bool, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	if id != r.entry.ID || r.entry.Status != from {
+	if id != r.entry.ID || r.entry.Status != c.From {
 		return false, nil
 	}
-	r.entry.Status = to
+	r.entry.Status = c.To
 	r.writes++
 	return true, nil
 }
@@ -273,7 +272,7 @@ func TestConcurrentVerifyCreditsOnce(t *testing.T) {
 		&fakeEvents{}, &fakeSpheres{}, NewBadges(&syncBadgeRepo{}), &syncTx{})
 
 	ok, _ := hammer(workers, func() error {
-		return uc.SetStatus(context.Background(), "entry-1", domain.TyfcbVerified, "admin")
+		return uc.SetStatus(context.Background(), "entry-1", domain.TyfcbVerified, "admin", nil)
 	})
 
 	if ok != 1 {
@@ -309,7 +308,7 @@ func TestConcurrentVerifyAndVoidSettleToZeroOrCredit(t *testing.T) {
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		_ = uc.SetStatus(context.Background(), "entry-1", domain.TyfcbVerified, "admin")
+		_ = uc.SetStatus(context.Background(), "entry-1", domain.TyfcbVerified, "admin", nil)
 	}()
 	go func() { defer wg.Done(); _ = uc.Void(context.Background(), "entry-1", "admin") }()
 	wg.Wait()
@@ -345,10 +344,10 @@ func TestVerifyUnverifyCyclesNetToZero(t *testing.T) {
 
 	ctx := context.Background()
 	for i := 0; i < 50; i++ {
-		if err := uc.SetStatus(ctx, "entry-1", domain.TyfcbVerified, "admin"); err != nil {
+		if err := uc.SetStatus(ctx, "entry-1", domain.TyfcbVerified, "admin", nil); err != nil {
 			t.Fatalf("cycle %d verify: %v", i, err)
 		}
-		if err := uc.SetStatus(ctx, "entry-1", domain.TyfcbPending, "admin"); err != nil {
+		if err := uc.SetStatus(ctx, "entry-1", domain.TyfcbPending, "admin", nil); err != nil {
 			t.Fatalf("cycle %d unverify: %v", i, err)
 		}
 	}

@@ -94,11 +94,13 @@ const memberScoreSelect = `
 	left join score_ledger sl on sl.member_id = m.id and sl.season_id = m.season_id
 `
 
-func (r *LedgerRepo) MemberScores(ctx context.Context, seasonID string, limit int) ([]domain.MemberScore, error) {
+func (r *LedgerRepo) MemberScores(ctx context.Context, seasonID string, kategori domain.ScoreCategory, limit int) ([]domain.MemberScore, error) {
+	// Column() returns one of three constants from the domain package, so this
+	// is not a place user input reaches the statement.
 	rows, err := r.db.q(ctx).Query(ctx, memberScoreSelect+`
 		where m.season_id = $1
 		group by m.id, u.full_name, t.nama_tim
-		order by score_overall desc, u.full_name
+		order by `+kategori.Column()+` desc, score_overall desc, u.full_name
 		limit $2
 	`, seasonID, limit)
 	if err != nil {

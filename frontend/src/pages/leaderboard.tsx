@@ -4,7 +4,7 @@ import { api } from "../lib/api";
 import { useApi } from "../lib/use-api";
 import { formatCurrency, formatCurrencyCompact, formatDate, formatPoints } from "../lib/format";
 import { EmptyState, ErrorNote, PageHeader, Spinner, Tabs } from "../components/ui";
-import type { LedgerEntry, TeamScore } from "../lib/types";
+import type { LedgerEntry, MemberScore, TeamScore } from "../lib/types";
 
 type Tab = "overall" | "tyfcb" | "visitor";
 
@@ -18,9 +18,12 @@ export function LeaderboardPage({ isPublic = false }: { isPublic?: boolean }) {
   const [tab, setTab] = useState<Tab>("overall");
   const [history, setHistory] = useState<{ team: TeamScore; kind: "tyfcb" | "visitor" } | null>(null);
 
+  // The member list is truncated server-side, so switching tabs refetches:
+  // re-sorting a top-50-by-overall would answer "who leads on visitors" with
+  // the wrong fifty people. Team scores are complete and sort on the client.
   const { data, error, loading, reload } = useApi(
-    () => (isPublic ? api.leaderboard.public() : api.leaderboard.get()),
-    [isPublic],
+    () => (isPublic ? api.leaderboard.public(tab) : api.leaderboard.get(tab)),
+    [isPublic, tab],
   );
 
   if (loading) return <Spinner />;
@@ -104,7 +107,9 @@ export function LeaderboardPage({ isPublic = false }: { isPublic?: boolean }) {
         <section className="card p-4">
           <div className="mb-3 flex items-center gap-2.5">
             <BarChart3 className="h-5 w-5 text-brand-600" />
-            <h2 className="text-base font-black text-ink">Individu</h2>
+            <h2 className="text-base font-black text-ink">
+              Individu {TABS.find((t) => t.key === tab)?.label}
+            </h2>
           </div>
 
           <ol className="space-y-1.5">
@@ -119,7 +124,7 @@ export function LeaderboardPage({ isPublic = false }: { isPublic?: boolean }) {
                   <p className="truncate text-xs text-muted">{member.nama_tim ?? "—"}</p>
                 </div>
                 <span className="num text-sm font-black text-brand-600">
-                  {formatPoints(member.score_overall)}
+                  {formatPoints(memberScoreFor(member, tab))}
                 </span>
               </li>
             ))}
@@ -143,6 +148,12 @@ function scoreFor(team: TeamScore, tab: Tab) {
   if (tab === "tyfcb") return team.score_tyfcb;
   if (tab === "visitor") return team.score_visitor;
   return team.score_overall;
+}
+
+function memberScoreFor(member: MemberScore, tab: Tab) {
+  if (tab === "tyfcb") return member.score_tyfcb;
+  if (tab === "visitor") return member.score_visitor;
+  return member.score_overall;
 }
 
 function labelFor(team: TeamScore, tab: Tab) {

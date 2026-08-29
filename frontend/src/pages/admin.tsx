@@ -6,7 +6,7 @@ import { useApi } from "../lib/use-api";
 import { formatCurrency, formatDate } from "../lib/format";
 import { Badge, EmptyState, ErrorNote, PageHeader, Spinner, Tabs } from "../components/ui";
 import { FilterBar, FilterSelect, Pagination, SearchField } from "../components/list-controls";
-import type { Member, Visitor } from "../lib/types";
+import type { Member, TyfcbEntry, Visitor } from "../lib/types";
 
 // ── TYFCB verification ────────────────────────────────────────────────────
 
@@ -18,6 +18,10 @@ export function AdminTyfcbPage() {
   const [search, setSearch] = useState("");
   const [teamID, setTeamID] = useState("");
   const [offset, setOffset] = useState(0);
+  // The entry awaiting a rejection reason. Rejecting is the one decision the
+  // member sees an explanation for, so it goes through a dialog rather than
+  // firing on the click.
+  const [rejecting, setRejecting] = useState<TyfcbEntry | null>(null);
 
   const { data: meta } = useApi(() => api.admin.teams.meta());
   const { data, error, loading, reload } = useApi(
@@ -32,10 +36,11 @@ export function AdminTyfcbPage() {
     setOffset(0);
   }
 
-  async function setStatus(id: string, status: string) {
+  async function setStatus(id: string, status: string, reason?: string) {
     setBusy(id + status);
     try {
-      await api.admin.tyfcb.setStatus(id, status);
+      await api.admin.tyfcb.setStatus(id, status, reason);
+      setRejecting(null);
       reload();
     } catch (err) {
       toast.error(err instanceof ApiError ? err.message : "Gagal memperbarui status.");
@@ -117,6 +122,12 @@ export function AdminTyfcbPage() {
                     </dd>
                   </div>
                 </dl>
+
+                {entry.status === "rejected" && entry.rejection_reason && (
+                  <p className="mt-2 rounded-xl bg-red-50 px-3 py-2 text-xs leading-relaxed text-red-700">
+                    <span className="font-bold">Alasan ditolak:</span> {entry.rejection_reason}
+                  </p>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-2 lg:flex lg:shrink-0">
@@ -141,7 +152,7 @@ export function AdminTyfcbPage() {
                 {entry.status !== "rejected" && (
                   <ActionButton
                     busy={busy === entry.id + "rejected"}
-                    onClick={() => setStatus(entry.id, "rejected")}
+                    onClick={() => setRejecting(entry)}
                     icon={XCircle}
                     label="Reject"
                     className="border border-red-200 bg-red-50 text-red-600 hover:bg-red-100"
@@ -161,6 +172,98 @@ export function AdminTyfcbPage() {
           onChange={setOffset}
         />
       )}
+
+      {rejecting && (
+        <RejectDialog
+          entry={rejecting}
+          busy={busy === rejecting.id + "rejected"}
+          onClose={() => setRejecting(null)}
+          onConfirm={(reason) => setStatus(rejecting.id, "rejected", reason)}
+        />
+      )}
+    </div>
+  );
+}
+
+/**
+ * Collects the reason a transaction was turned down. The member reads this on
+ * their own history, so the field is required here rather than only on the
+ * server — a blocked submit is a better explanation than a failed request.
+ */
+function RejectDialog({
+  entry,
+  busy,
+  onClose,
+  onConfirm,
+}: {
+  entry: TyfcbEntry;
+  busy: boolean;
+  onClose: () => void;
+  onConfirm: (reason: string) => void;
+}) {
+  const [reason, setReason] = useState("");
+  const trimmed = reason.trim();
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center bg-ink/40 px-3 pb-3 backdrop-blur-sm sm:items-center sm:p-4"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <form
+        onSubmit={(e: FormEvent) => {
+          e.preventDefault();
+          if (trimmed) onConfirm(trimmed);
+        }}
+        className="w-full max-w-md rounded-3xl bg-white p-5 shadow-2xl"
+      >
+        <div className="mb-3 flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="section-label text-brand-700">Tolak TYFCB</p>
+            <h3 className="truncate text-lg font-black text-ink">
+              {entry.giver_name ?? "—"} → {entry.receiver_name ?? "—"}
+            </h3>
+            <p className="num text-xs text-muted">{formatCurrency(entry.nilai)}</p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Tutup"
+            className="grid h-10 w-10 shrink-0 place-items-center rounded-full text-muted transition hover:bg-brand-50 hover:text-ink"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <label className="block">
+          <span className="mb-1.5 block text-xs font-bold text-muted">
+            Alasan penolakan <span className="text-brand-600">*</span>
+          </span>
+          <textarea
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            rows={3}
+            autoFocus
+            placeholder="Contoh: nilai tidak sesuai bukti transaksi."
+            className="field resize-none"
+          />
+        </label>
+        <p className="mt-1.5 text-xs text-muted">Member akan melihat alasan ini di riwayatnya.</p>
+
+        <div className="mt-4 grid grid-cols-2 gap-2">
+          <button type="button" onClick={onClose} className="btn-secondary">
+            Batal
+          </button>
+          <button
+            type="submit"
+            disabled={busy || !trimmed}
+            className="btn-primary bg-red-600 hover:bg-red-700 disabled:opacity-40"
+          >
+            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Tolak"}
+          </button>
+        </div>
+      </form>
     </div>
   );
 }

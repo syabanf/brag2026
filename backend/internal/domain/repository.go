@@ -82,10 +82,10 @@ type TyfcbRepository interface {
 	ListPaged(ctx context.Context, f TyfcbFilter) ([]TyfcbEntry, int, error)
 	CountPair(ctx context.Context, giverID, receiverID, seasonID string) (int, error)
 	Create(ctx context.Context, e *TyfcbEntry, submittedBy *string) (string, error)
-	// UpdateStatusGuarded only succeeds when the row still holds `from`. Two
+	// UpdateStatusGuarded only succeeds when the row still holds `From`. Two
 	// admins verifying the same entry would otherwise both credit it, and the
 	// ledger has no way to take points back except another entry.
-	UpdateStatusGuarded(ctx context.Context, id string, from, to TyfcbStatus, verifiedBy *string, verifiedAt *time.Time) (bool, error)
+	UpdateStatusGuarded(ctx context.Context, id string, change TyfcbStatusChange) (bool, error)
 	Void(ctx context.Context, id, voidedBy string) error
 	CountByStatus(ctx context.Context, seasonID string) (map[string]int, error)
 }
@@ -130,7 +130,7 @@ type LedgerRepository interface {
 	// Append is the only write: the ledger is never updated or deleted.
 	Append(ctx context.Context, e *LedgerEntry) error
 	TeamScores(ctx context.Context, seasonID string) ([]TeamScore, error)
-	MemberScores(ctx context.Context, seasonID string, limit int) ([]MemberScore, error)
+	MemberScores(ctx context.Context, seasonID string, kategori ScoreCategory, limit int) ([]MemberScore, error)
 	MemberScore(ctx context.Context, memberID, seasonID string) (*MemberScore, error)
 	TeamHistory(ctx context.Context, teamID, seasonID, kategori string) ([]LedgerEntry, error)
 	// SumBySource totals what a single source row has already been credited.
@@ -221,6 +221,15 @@ type PrizeRepository interface {
 	// at-a-time avoids a query per member and a row per ticket.
 	RebuildTickets(ctx context.Context, seasonID string) ([]TicketCount, error)
 	TicketCounts(ctx context.Context, seasonID string) (map[string]int, error)
+
+	// DrawWinner picks one ticket at random and claims the prize for its
+	// holder in a single statement, guarded on the prize having no winner
+	// yet. Two admins pressing Draw at the same moment therefore produce one
+	// winner, not two, and the second is told the draw already happened.
+	//
+	// Selection is one row per ticket, so a member with four tickets is four
+	// times as likely to be picked — which is the whole point of issuing them.
+	DrawWinner(ctx context.Context, seasonID, prizeID string) (*Prize, error)
 }
 
 type WeeklyEventRepository interface {

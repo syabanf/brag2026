@@ -189,6 +189,7 @@ func (s *Server) Router() http.Handler {
 			r.Patch("/prizes/{id}", s.handleSetPrizeStatus)
 			r.Delete("/prizes/{id}", s.handleDeletePrize)
 			r.Post("/raffle/issue", s.handleIssueTickets)
+			r.Post("/raffle/draw/{id}", s.handleDrawPrize)
 
 			r.Get("/spheres", s.handleListSpheres)
 			r.Post("/spheres", s.handleCreateSphere)

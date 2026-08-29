@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"github.com/ikurniawann/brag2026/backend/internal/domain"
@@ -128,9 +129,28 @@ func (u *Tyfcb) Submit(ctx context.Context, in SubmitTyfcbInput, submittedBy *st
 // ledger consistent: crossing into verified credits the points, leaving it
 // writes an equal and opposite reversal. Both happen in one transaction with
 // the status change so a partial failure cannot skew a leaderboard.
-func (u *Tyfcb) SetStatus(ctx context.Context, id string, next domain.TyfcbStatus, actorID string) error {
+// SetStatus moves an entry through moderation. A rejection carries a reason:
+// the member sees it on their own history, and "rejected" with no explanation
+// is the single most common thing they come back to ask about.
+func (u *Tyfcb) SetStatus(ctx context.Context, id string, next domain.TyfcbStatus, actorID string, reason *string) error {
 	if !domain.ValidTyfcbStatus(string(next)) {
 		return domain.Invalid("Status tidak valid.")
+	}
+
+	if reason != nil {
+		if trimmed := strings.TrimSpace(*reason); trimmed == "" {
+			reason = nil
+		} else {
+			reason = &trimmed
+		}
+	}
+	if next == domain.TyfcbRejected && reason == nil {
+		return domain.Invalid("Alasan penolakan wajib diisi.")
+	}
+	// A reason only describes a rejection, so it does not follow the entry
+	// into any other state.
+	if next != domain.TyfcbRejected {
+		reason = nil
 	}
 
 	entry, err := u.tyfcb.FindByID(ctx, id)
@@ -165,7 +185,10 @@ func (u *Tyfcb) SetStatus(ctx context.Context, id string, next domain.TyfcbStatu
 
 		// The guarded update runs first, so a request that lost the race stops
 		// here instead of appending points it is not entitled to.
-		ok, err := u.tyfcb.UpdateStatusGuarded(ctx, id, entry.Status, next, verifiedBy, verifiedAt)
+		ok, err := u.tyfcb.UpdateStatusGuarded(ctx, id, domain.TyfcbStatusChange{
+			From: entry.Status, To: next,
+			VerifiedBy: verifiedBy, VerifiedAt: verifiedAt, Reason: reason,
+		})
 		if err != nil {
 			return err
 		}

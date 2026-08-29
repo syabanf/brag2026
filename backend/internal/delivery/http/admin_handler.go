@@ -356,13 +356,16 @@ func (s *Server) handleLeaderboard(w http.ResponseWriter, r *http.Request) {
 	}
 
 	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
-	members, err := s.leaderboard.IndividualStandings(r.Context(), limit)
+	kategori := domain.ParseScoreCategory(r.URL.Query().Get("kategori"))
+	members, err := s.leaderboard.IndividualStandings(r.Context(), kategori, limit)
 	if err != nil {
 		fail(w, err)
 		return
 	}
 
-	writeJSON(w, http.StatusOK, map[string]any{"teams": teams, "members": members})
+	writeJSON(w, http.StatusOK, map[string]any{
+		"teams": teams, "members": members, "kategori": kategori,
+	})
 }
 
 func (s *Server) handleTeamHistory(w http.ResponseWriter, r *http.Request) {

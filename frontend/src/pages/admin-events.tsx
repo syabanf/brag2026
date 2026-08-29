@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { CalendarDays, Loader2, Network, Play, Ticket, Trash2 } from "lucide-react";
+import { CalendarDays, Dices, Loader2, Network, Play, Ticket, Trash2, Trophy } from "lucide-react";
 import { api, ApiError } from "../lib/api";
 import { toast } from "../lib/toast-store";
 import { useApi } from "../lib/use-api";
@@ -303,6 +303,23 @@ function PrizeAdmin() {
     }
   }
 
+  // Drawing is announced in the room and cannot be taken back, so it asks
+  // first. The server refuses a second draw regardless.
+  async function draw(id: string, nama: string) {
+    if (!window.confirm(`Undi pemenang untuk "${nama}"? Hasil undian tidak bisa diulang.`)) return;
+
+    setBusy(id);
+    try {
+      const won = await api.admin.raffle.draw(id);
+      toast.ok(`Pemenang: ${won.pemenang_nama ?? "—"}`);
+      reload();
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Gagal mengundi.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
   return (
     <div className="space-y-4">
       <section className="card p-4">
@@ -349,9 +366,26 @@ function PrizeAdmin() {
                   {prize.alokasi === "undian" ? "Diundi" : "Pemenang kategori"}
                   {prize.donatur_nama ? ` · donasi ${prize.donatur_nama}` : " · seed panitia"}
                 </p>
+                {prize.pemenang_nama && (
+                  <p className="mt-1.5 inline-flex items-center gap-1.5 rounded-lg bg-emerald-50 px-2 py-1 text-xs font-bold text-emerald-700">
+                    <Trophy className="h-3.5 w-3.5" />
+                    {prize.pemenang_nama}
+                  </p>
+                )}
               </div>
 
               <div className="flex flex-wrap items-center gap-2 lg:shrink-0">
+                {prize.alokasi === "undian" && !prize.pemenang_id && prize.status === "approved" && (
+                  <button
+                    type="button"
+                    disabled={busy === prize.id}
+                    onClick={() => draw(prize.id, prize.nama_hadiah)}
+                    className="btn-primary min-h-11 shrink-0 px-3 text-xs"
+                  >
+                    <Dices className="h-4 w-4" />
+                    Undi
+                  </button>
+                )}
                 <select
                   disabled={busy === prize.id}
                   value={prize.status}
