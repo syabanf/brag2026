@@ -12,6 +12,9 @@ services:
         # Vite inlines this at build time, so it must point at the API URL as
         # the browser will see it — not the internal service name.
         VITE_API_URL: ${API_PUBLIC_URL:-http://localhost:8081}
+        # This compose file runs the seeded demo, so the login screen offers
+        # the demo personas. Set DEMO_SIGNIN=false to build without them.
+        VITE_DEMO_SIGNIN: ${DEMO_SIGNIN:-true}
     ports:
       - "${WEB_PORT:-5173}:80"
     depends_on:

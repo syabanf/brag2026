@@ -14,6 +14,11 @@ COPY . .
 ARG VITE_API_URL=http://localhost:8080
 ENV VITE_API_URL=$VITE_API_URL
 
+# Quick sign-in advertises the seeded demo accounts on the login screen. Off
+# unless asked for, so a real deployment never ships it.
+ARG VITE_DEMO_SIGNIN=false
+ENV VITE_DEMO_SIGNIN=$VITE_DEMO_SIGNIN
+
 RUN npm run build
 
 

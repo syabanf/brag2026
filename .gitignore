@@ -15,3 +15,7 @@ coverage
 brag_dev_backup.sql
 *.dump
 *.sql.gz
+
+# Compiled helper binaries built next to their package.
+backend/seed
+backend/api

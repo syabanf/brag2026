@@ -54,6 +54,14 @@ func (db *DB) Close() { db.pool.Close() }
 
 func (db *DB) Ping(ctx context.Context) error { return db.pool.Ping(ctx) }
 
+// ExecScript runs a whole .sql file. It takes no parameters on purpose: this
+// is for seed and setup scripts, not a general escape hatch — every query that
+// carries user input goes through a repository with bound arguments.
+func (db *DB) ExecScript(ctx context.Context, script string) error {
+	_, err := db.pool.Exec(ctx, script)
+	return err
+}
+
 // txKey carries an open transaction on the context so repositories can join it
 // without every method growing a tx parameter.
 type txKey struct{}

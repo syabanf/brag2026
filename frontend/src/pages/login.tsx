@@ -3,6 +3,7 @@ import { Navigate, useNavigate } from "react-router-dom";
 import { Eye, EyeOff, Loader2, LogIn, Lock, Mail } from "lucide-react";
 import { useAuth } from "../lib/use-auth";
 import { ApiError } from "../lib/api";
+import { DEMO_ACCOUNTS, DEMO_PASSWORD, demoSignInEnabled, type DemoAccount } from "../lib/demo-accounts";
 
 export function LoginPage() {
   const { user, loading, signIn } = useAuth();
@@ -13,23 +14,44 @@ export function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  // Which demo persona is mid-sign-in, so only that button shows a spinner.
+  const [demoBusy, setDemoBusy] = useState<string | null>(null);
 
   if (!loading && user) {
     return <Navigate to="/" replace />;
   }
 
-  async function handleSubmit(e: FormEvent) {
-    e.preventDefault();
+  async function enter(withEmail: string, withPassword: string) {
     setError(null);
-    setSubmitting(true);
-
     try {
-      await signIn(email, password);
+      await signIn(withEmail, withPassword);
       navigate("/", { replace: true });
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Terjadi kesalahan.");
+    }
+  }
+
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault();
+    setSubmitting(true);
+    try {
+      await enter(email, password);
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function signInAs(account: DemoAccount) {
+    // Fill the form too: the persona stays visible after a failure, so it is
+    // obvious which account was tried.
+    setEmail(account.email);
+    setPassword(account.password);
+
+    setDemoBusy(account.email);
+    try {
+      await enter(account.email, account.password);
+    } finally {
+      setDemoBusy(null);
     }
   }
 
@@ -115,6 +137,45 @@ export function LoginPage() {
             )}
           </button>
         </form>
+
+        {demoSignInEnabled && (
+          <section aria-labelledby="demo-heading" className="card mt-4 p-5">
+            <h2 id="demo-heading" className="text-sm font-black text-ink">
+              Masuk cepat sebagai demo
+            </h2>
+            <p className="mt-1 text-xs leading-relaxed text-muted">
+              Akun contoh dari data seed, lengkap dengan transaksi, visitor, dan badge.
+            </p>
+
+            <div className="mt-3 grid gap-2">
+              {DEMO_ACCOUNTS.map((account) => (
+                <button
+                  key={account.email}
+                  type="button"
+                  disabled={submitting || demoBusy !== null}
+                  onClick={() => signInAs(account)}
+                  className="flex items-center gap-3 rounded-2xl border border-brand-100 bg-white px-3 py-2.5 text-left transition hover:border-brand-200 hover:bg-brand-50 disabled:opacity-50"
+                >
+                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-brand-50 text-brand-600">
+                    {demoBusy === account.email ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <account.icon className="h-4 w-4" />
+                    )}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-bold text-ink">{account.label}</span>
+                    <span className="block truncate text-xs text-muted">{account.blurb}</span>
+                  </span>
+                </button>
+              ))}
+            </div>
+
+            <p className="num mt-3 text-center text-[0.68rem] text-muted">
+              Semua akun demo memakai kata sandi {DEMO_PASSWORD}
+            </p>
+          </section>
+        )}
 
         <p className="mt-4 text-center text-xs text-muted">
           Lupa kata sandi? Hubungi Growth Coordinator.
