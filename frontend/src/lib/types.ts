@@ -288,3 +288,24 @@ export type VisitorQuery = {
   limit?: number;
   offset?: number;
 };
+
+export type APIKey = {
+  id: string;
+  nama: string;
+  /** The visible start of the key, for telling keys apart. Not a secret. */
+  prefix: string;
+  user_id: string;
+  user_name: string;
+  user_email: string;
+  read_only: boolean;
+  last_used_at: string | null;
+  expires_at: string | null;
+  revoked_at: string | null;
+  created_at: string;
+};
+
+/** The one and only sight of a new key's secret. */
+export type CreatedAPIKey = {
+  key: string;
+  record: APIKey;
+};

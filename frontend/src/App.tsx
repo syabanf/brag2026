@@ -23,6 +23,7 @@ import {
   AdminTyfcbPage,
   AdminVisitorsPage,
 } from "./pages/admin";
+import { APIKeysPage } from "./pages/api-keys";
 import {
   AwardsPage,
   BoosterDetailPage,
@@ -76,6 +77,7 @@ export default function App() {
           <Route path="/activity" element={<Protected><ActivityPage /></Protected>} />
           <Route path="/history" element={<Protected><HistoryPage /></Protected>} />
           <Route path="/profile" element={<Protected><ProfilePage /></Protected>} />
+          <Route path="/api-keys" element={<Protected><APIKeysPage /></Protected>} />
 
           <Route path="/captain" element={<Protected role="captain"><CaptainPage /></Protected>} />
 

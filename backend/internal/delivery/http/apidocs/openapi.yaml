@@ -1,0 +1,1707 @@
+openapi: 3.1.0
+
+info:
+  title: BRAG 2026 API
+  version: "1.0"
+  description: |
+    API untuk BNI Grow Annual Challenge — mesin skor, leaderboard, dan
+    manajemen musim kompetisi.
+
+    ## Otentikasi
+
+    Ada dua cara, dan keduanya memakai izin yang sama persis. Rute yang
+    butuh admin tetap butuh admin, dipanggil dari browser maupun dari skrip.
+
+    **Cookie sesi** — untuk aplikasi web. `POST /api/auth/login` menaruh
+    cookie `HttpOnly`; sertakan pada tiap permintaan berikutnya.
+
+    **Kunci API** — untuk integrasi. Kirim lewat salah satu header:
+
+    ```
+    X-API-Key: brag_xxxxxxxxxxxx
+    Authorization: Bearer brag_xxxxxxxxxxxx
+    ```
+
+    Kunci bertindak atas nama seorang pengguna dan mewarisi perannya. Kunci
+    bertanda *read-only* hanya melayani `GET`; permintaan tulis dijawab
+    `403`. Kunci ditampilkan **sekali** saat dibuat dan tidak bisa dilihat
+    lagi — hanya sidik jarinya yang disimpan.
+
+    ## Kesalahan
+
+    Kegagalan selalu berbentuk `{ "error": "pesan untuk pengguna" }` dengan
+    kode status yang sesuai: `400` input tidak valid, `401` belum masuk,
+    `403` peran tidak mencukupi, `404` tidak ditemukan, `409` bentrok
+    dengan keadaan sekarang, `429` terlalu sering.
+
+    ## Paginasi
+
+    Daftar panjang menerima `limit` (maks 200) dan `offset`, atau `page`.
+    Jawabannya membawa `items`, `total`, `limit`, dan `offset`.
+
+servers:
+  - url: http://localhost:8081
+    description: Pengembangan lokal
+
+tags:
+  - name: Auth
+    description: Masuk, keluar, dan identitas pemanggil
+  - name: API Keys
+    description: Kredensial untuk integrasi
+  - name: Publik
+    description: Terbuka tanpa otentikasi
+  - name: Member
+    description: Dashboard dan kontribusi anggota
+  - name: Leaderboard
+    description: Peringkat tim dan individu
+  - name: Katalog
+    description: Event, booster, badge, hadiah
+  - name: Kapten
+    description: Input atas nama anggota tim
+  - name: Admin
+    description: Verifikasi, master data, pass, undian
+  - name: Export
+    description: Unduhan Excel, PDF, dan CSV
+
+security:
+  - apiKeyHeader: []
+  - bearerKey: []
+  - sessionCookie: []
+
+paths:
+  /api/health:
+    get:
+      tags: [Publik]
+      summary: Cek kesehatan layanan
+      security: []
+      responses:
+        "200":
+          description: Layanan siap
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: ok }
+
+  /api/auth/login:
+    post:
+      tags: [Auth]
+      summary: Masuk dengan email dan kata sandi
+      description: |
+        Dibatasi 10 percobaan per menit per alamat IP. Balasan menyetel
+        cookie sesi `HttpOnly`.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email, example: demo.admin@brag2026.id }
+                password: { type: string, format: password, example: demo123 }
+      responses:
+        "200":
+          description: Berhasil masuk
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user: { $ref: "#/components/schemas/User" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+
+  /api/auth/logout:
+    post:
+      tags: [Auth]
+      summary: Keluar dan hapus sesi
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+
+  /api/auth/me:
+    get:
+      tags: [Auth]
+      summary: Identitas pemanggil beserta profil kompetisinya
+      responses:
+        "200":
+          description: Pengguna saat ini
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user: { $ref: "#/components/schemas/User" }
+                  member:
+                    oneOf:
+                      - { $ref: "#/components/schemas/Member" }
+                      - { type: "null" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/auth/change-password:
+    post:
+      tags: [Auth]
+      summary: Ganti kata sandi sendiri
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [current_password, new_password]
+              properties:
+                current_password: { type: string, format: password }
+                new_password: { type: string, format: password, minLength: 8 }
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/api-keys:
+    get:
+      tags: [API Keys]
+      summary: Daftar kunci
+      description: Admin melihat seluruh kunci; peran lain hanya miliknya sendiri.
+      responses:
+        "200":
+          description: Daftar kunci
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/APIKey" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    post:
+      tags: [API Keys]
+      summary: Buat kunci baru
+      description: |
+        Nilai kunci hanya muncul di balasan ini dan tidak dapat diambil lagi.
+        Menerbitkan kunci atas nama orang lain hanya boleh dilakukan admin.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [nama]
+              properties:
+                nama:
+                  type: string
+                  description: Label agar kunci mudah dikenali
+                  example: Integrasi dashboard
+                user_id:
+                  type: string
+                  format: uuid
+                  description: Pemilik kunci. Kosong berarti pemanggil sendiri.
+                read_only:
+                  type: boolean
+                  default: true
+                  description: Bila true, kunci hanya melayani GET.
+                expires_in_days:
+                  type: integer
+                  minimum: 0
+                  maximum: 3650
+                  description: 0 berarti tidak kedaluwarsa sendiri.
+      responses:
+        "201":
+          description: Kunci dibuat
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  key:
+                    type: string
+                    description: Rahasianya. Simpan sekarang — tidak bisa dilihat lagi.
+                    example: brag_rA6bOQvZwhJRqIxK2mN8pQ7sT4vW1yZ0
+                  record: { $ref: "#/components/schemas/APIKey" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /api/api-keys/{id}:
+    delete:
+      tags: [API Keys]
+      summary: Cabut kunci
+      description: Berlaku seketika. Tidak bisa dibatalkan.
+      parameters: [{ $ref: "#/components/parameters/PathID" }]
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: Kunci sudah dicabut sebelumnya
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /api/public/leaderboard:
+    get:
+      tags: [Publik, Leaderboard]
+      summary: Klasemen tim tanpa otentikasi
+      security: []
+      parameters: [{ $ref: "#/components/parameters/Kategori" }]
+      responses:
+        "200": { $ref: "#/components/responses/Leaderboard" }
+
+  /api/public/leaderboard/teams/{id}/history:
+    get:
+      tags: [Publik, Leaderboard]
+      summary: Riwayat poin sebuah tim
+      security: []
+      parameters:
+        - { $ref: "#/components/parameters/PathID" }
+        - { $ref: "#/components/parameters/KategoriLedger" }
+      responses:
+        "200": { $ref: "#/components/responses/LedgerList" }
+
+  /api/leaderboard:
+    get:
+      tags: [Leaderboard]
+      summary: Klasemen tim dan individu
+      description: |
+        Daftar individu dipotong oleh `limit`, jadi `kategori` menentukan
+        urutannya di server — mengurutkan ulang di klien akan memeringkat
+        potongan yang salah.
+      parameters:
+        - { $ref: "#/components/parameters/Kategori" }
+        - { $ref: "#/components/parameters/Limit" }
+      responses:
+        "200": { $ref: "#/components/responses/Leaderboard" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/leaderboard/teams/{id}/history:
+    get:
+      tags: [Leaderboard]
+      summary: Riwayat poin sebuah tim
+      parameters:
+        - { $ref: "#/components/parameters/PathID" }
+        - { $ref: "#/components/parameters/KategoriLedger" }
+      responses:
+        "200": { $ref: "#/components/responses/LedgerList" }
+
+  /api/dashboard:
+    get:
+      tags: [Member]
+      summary: Ringkasan musim untuk pemanggil
+      responses:
+        "200":
+          description: Skor, peringkat, badge, dan event minggu ini
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Dashboard" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/members/search:
+    get:
+      tags: [Member]
+      summary: Cari anggota untuk pemilih lawan transaksi
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema: { type: string }
+          description: Nama atau email
+      responses:
+        "200":
+          description: Anggota yang cocok
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Member" }
+
+  /api/tyfcb:
+    post:
+      tags: [Member]
+      summary: Catat transaksi TYFCB
+      description: |
+        Masuk sebagai `pending`. Poin baru menyentuh ledger setelah admin
+        memverifikasi. Skornya dihitung saat pencatatan:
+        `round(Band × PairPenalty × EventMultiplier)`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TyfcbInput" }
+      responses:
+        "201":
+          description: Transaksi tercatat
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TyfcbEntry" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+
+  /api/visitors:
+    post:
+      tags: [Member]
+      summary: Daftarkan tamu undangan
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/VisitorInput" }
+      responses:
+        "201":
+          description: Tamu terdaftar
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Visitor" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "409":
+          description: Kontak sudah terdaftar di musim ini
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /api/badges:
+    get:
+      tags: [Katalog]
+      summary: Katalog 12 badge
+      responses:
+        "200":
+          description: Semua badge beserta pemicunya
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Badge" }
+
+  /api/activity:
+    get:
+      tags: [Katalog]
+      summary: Umpan aktivitas musim
+      parameters: [{ $ref: "#/components/parameters/Limit" }]
+      responses:
+        "200":
+          description: Kejadian terbaru
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/ActivityItem" }
+
+  /api/events:
+    get:
+      tags: [Katalog]
+      summary: Jadwal event mingguan musim ini
+      responses:
+        "200":
+          description: Dua belas minggu
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/WeeklyEvent" }
+
+  /api/events/bank:
+    get:
+      tags: [Katalog]
+      summary: Bank 12 kode event beserta aturan pengalinya
+      responses:
+        "200":
+          description: Katalog event
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    event_code: { type: string, example: FOUNDER }
+                    nama: { type: string }
+                    deskripsi: { type: string }
+
+  /api/boosters:
+    get:
+      tags: [Katalog]
+      summary: Pengumuman booster
+      parameters:
+        - name: active
+          in: query
+          schema: { type: boolean }
+          description: Bila true, hanya yang sedang berjalan
+      responses:
+        "200":
+          description: Booster
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Booster" }
+
+  /api/boosters/{id}:
+    get:
+      tags: [Katalog]
+      summary: Satu booster
+      parameters: [{ $ref: "#/components/parameters/PathID" }]
+      responses:
+        "200":
+          description: Booster
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Booster" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/prizes:
+    get:
+      tags: [Katalog]
+      summary: Prize pool
+      parameters:
+        - name: status
+          in: query
+          schema: { type: string, enum: [pending, approved, rejected, awarded] }
+      responses:
+        "200":
+          description: Hadiah
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Prize" }
+
+  /api/prizes/donate:
+    post:
+      tags: [Member]
+      summary: Donasikan hadiah
+      description: Masuk sebagai `pending` hingga admin menyetujui, lalu donatur memperoleh badge PATRON.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PrizeInput" }
+      responses:
+        "201": { $ref: "#/components/responses/Created" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+
+  /api/raffle/tickets:
+    get:
+      tags: [Katalog]
+      summary: Jumlah tiket undian per anggota
+      responses:
+        "200":
+          description: Kepemilikan tiket
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/TicketSummary" }
+
+  /api/spheres:
+    get:
+      tags: [Katalog]
+      summary: Contact sphere — dipakai pengali POWER_TEAM
+      responses:
+        "200":
+          description: Sphere
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/ContactSphere" }
+
+  /api/one-to-one:
+    get:
+      tags: [Member]
+      summary: Catatan pertemuan 1-2-1
+      parameters: [{ $ref: "#/components/parameters/Limit" }]
+      responses:
+        "200":
+          description: Catatan
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/OneToOne" }
+    post:
+      tags: [Member]
+      summary: Catat pertemuan 1-2-1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [member_id, tanggal]
+              properties:
+                member_id: { type: string, format: uuid }
+                tanggal: { type: string, format: date }
+                catatan: { type: string, nullable: true }
+      responses:
+        "201": { $ref: "#/components/responses/Created" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+
+  /api/tour/steps:
+    get:
+      tags: [Publik]
+      summary: Langkah-langkah panduan aplikasi
+      security: []
+      responses:
+        "200":
+          description: Langkah panduan
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id: { type: string }
+                    judul: { type: string }
+                    narasi: { type: string }
+
+  /api/tour/voice:
+    get:
+      tags: [Publik]
+      summary: Narasi suara satu langkah
+      description: Mengembalikan `204` bila layanan text-to-speech tidak dikonfigurasi.
+      security: []
+      parameters:
+        - name: step
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Audio narasi
+          content:
+            audio/mpeg:
+              schema: { type: string, format: binary }
+        "204":
+          description: Tidak dikonfigurasi — klien memakai suara peramban
+
+  /api/export/leaderboard:
+    get:
+      tags: [Export]
+      summary: Unduh leaderboard
+      description: |
+        Excel menyimpan angka sebagai angka dengan format tampilan, jadi
+        kolomnya bisa langsung dijumlah.
+      parameters: [{ $ref: "#/components/parameters/Format" }]
+      responses:
+        "200": { $ref: "#/components/responses/FileDownload" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+
+  /api/captain/team:
+    get:
+      tags: [Kapten]
+      summary: Anggota tim yang dipimpin
+      responses:
+        "200":
+          description: Tim beserta anggotanya
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CaptainTeam" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /api/captain/tyfcb:
+    post:
+      tags: [Kapten]
+      summary: Catat TYFCB atas nama anggota tim
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - { $ref: "#/components/schemas/TyfcbInput" }
+                - type: object
+                  required: [member_id]
+                  properties:
+                    member_id:
+                      type: string
+                      format: uuid
+                      description: Penjual. Harus satu tim dengan kapten.
+      responses:
+        "201":
+          description: Transaksi tercatat
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TyfcbEntry" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /api/captain/tyfcb/{id}/void:
+    patch:
+      tags: [Kapten]
+      summary: Batalkan transaksi
+      description: Bila sudah terverifikasi, poinnya dibalik dengan baris ledger bertanda negatif.
+      parameters: [{ $ref: "#/components/parameters/PathID" }]
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /api/captain/visitors:
+    post:
+      tags: [Kapten]
+      summary: Daftarkan tamu atas nama anggota tim
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - { $ref: "#/components/schemas/VisitorInput" }
+                - type: object
+                  required: [member_id]
+                  properties:
+                    member_id: { type: string, format: uuid }
+      responses:
+        "201":
+          description: Tamu terdaftar
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Visitor" }
+
+  /api/captain/visitors/{id}/void:
+    patch:
+      tags: [Kapten]
+      summary: Batalkan tamu dan balikkan poinnya
+      parameters: [{ $ref: "#/components/parameters/PathID" }]
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /api/captain/members/{id}/password:
+    patch:
+      tags: [Kapten]
+      summary: Setel ulang kata sandi anggota tim
+      parameters: [{ $ref: "#/components/parameters/PathID" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [new_password]
+              properties:
+                new_password: { type: string, format: password, minLength: 8 }
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /api/admin/members:
+    get:
+      tags: [Admin]
+      summary: Daftar anggota
+      parameters:
+        - { $ref: "#/components/parameters/Search" }
+        - { $ref: "#/components/parameters/TeamID" }
+        - { $ref: "#/components/parameters/Limit" }
+        - { $ref: "#/components/parameters/Offset" }
+      responses:
+        "200":
+          description: Halaman anggota
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - { $ref: "#/components/schemas/Page" }
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items: { $ref: "#/components/schemas/Member" }
+    post:
+      tags: [Admin]
+      summary: Tambah anggota
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/MemberInput" }
+      responses:
+        "201": { $ref: "#/components/responses/Created" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+
+  /api/admin/members/{id}:
+    patch:
+      tags: [Admin]
+      summary: Ubah anggota
+      description: Menaikkan `color_status` memicu bonus Level Up dan badge LEVEL_UP.
+      parameters: [{ $ref: "#/components/parameters/PathID" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/MemberInput" }
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+
+  /api/admin/tyfcb:
+    get:
+      tags: [Admin]
+      summary: Antrean verifikasi TYFCB
+      parameters:
+        - name: status
+          in: query
+          schema: { type: string, enum: [pending, verified, rejected, void] }
+        - { $ref: "#/components/parameters/Search" }
+        - { $ref: "#/components/parameters/TeamID" }
+        - { $ref: "#/components/parameters/DateFrom" }
+        - { $ref: "#/components/parameters/DateTo" }
+        - { $ref: "#/components/parameters/Limit" }
+        - { $ref: "#/components/parameters/Offset" }
+      responses:
+        "200":
+          description: Halaman transaksi beserta jumlah per status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  entries:
+                    type: array
+                    items: { $ref: "#/components/schemas/TyfcbEntry" }
+                  total: { type: integer }
+                  limit: { type: integer }
+                  offset: { type: integer }
+                  counts:
+                    type: object
+                    additionalProperties: { type: integer }
+
+  /api/admin/tyfcb/{id}:
+    patch:
+      tags: [Admin]
+      summary: Setujui atau tolak transaksi
+      description: |
+        Menjadi `verified` mengkredit poin; keluar dari `verified` menulis
+        baris pembalik yang sama besar. Penolakan **wajib** menyertakan
+        alasan — anggota membacanya di riwayatnya sendiri.
+      parameters: [{ $ref: "#/components/parameters/PathID" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status: { type: string, enum: [pending, verified, rejected] }
+                reason:
+                  type: string
+                  nullable: true
+                  description: Wajib bila status `rejected`.
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /api/admin/visitors:
+    get:
+      tags: [Admin]
+      summary: Daftar tamu
+      parameters:
+        - name: status
+          in: query
+          schema: { type: string, enum: [terdaftar, hadir, hadir_penuh] }
+        - name: converted
+          in: query
+          schema: { type: boolean }
+        - { $ref: "#/components/parameters/Search" }
+        - { $ref: "#/components/parameters/TeamID" }
+        - { $ref: "#/components/parameters/Limit" }
+        - { $ref: "#/components/parameters/Offset" }
+      responses:
+        "200":
+          description: Halaman tamu
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - { $ref: "#/components/schemas/Page" }
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items: { $ref: "#/components/schemas/Visitor" }
+
+  /api/admin/visitors/{id}:
+    patch:
+      tags: [Admin]
+      summary: Perbarui kehadiran atau konversi tamu
+      description: |
+        Poin bersifat kumulatif — hadir 20, hadir penuh 50, konversi +100.
+        Menurunkan status membalik selisihnya secara tepat.
+      parameters: [{ $ref: "#/components/parameters/PathID" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status_hadir: { type: string, enum: [terdaftar, hadir, hadir_penuh] }
+                is_converted: { type: boolean }
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /api/admin/teams:
+    get:
+      tags: [Admin]
+      summary: Daftar tim
+      responses:
+        "200":
+          description: Tim
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Team" }
+    post:
+      tags: [Admin]
+      summary: Buat tim
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [nama_tim]
+              properties:
+                nama_tim: { type: string }
+      responses:
+        "201": { $ref: "#/components/responses/Created" }
+
+  /api/admin/teams/{id}:
+    patch:
+      tags: [Admin]
+      summary: Ganti nama tim
+      parameters: [{ $ref: "#/components/parameters/PathID" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                nama_tim: { type: string }
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+    delete:
+      tags: [Admin]
+      summary: Hapus tim
+      parameters: [{ $ref: "#/components/parameters/PathID" }]
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /api/admin/teams-meta:
+    get:
+      tags: [Admin]
+      summary: Tim dan klasifikasi dalam satu permintaan
+      responses:
+        "200":
+          description: Data untuk pemilih di formulir
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  teams:
+                    type: array
+                    items: { $ref: "#/components/schemas/Team" }
+                  classifications:
+                    type: array
+                    items: { $ref: "#/components/schemas/Classification" }
+
+  /api/admin/classifications:
+    get:
+      tags: [Admin]
+      summary: Daftar klasifikasi
+      responses:
+        "200":
+          description: Klasifikasi
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Classification" }
+    post:
+      tags: [Admin]
+      summary: Tambah klasifikasi
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [nama]
+              properties: { nama: { type: string } }
+      responses:
+        "201": { $ref: "#/components/responses/Created" }
+
+  /api/admin/classifications/{id}:
+    patch:
+      tags: [Admin]
+      summary: Ganti nama klasifikasi
+      parameters: [{ $ref: "#/components/parameters/PathID" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties: { nama: { type: string } }
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+    delete:
+      tags: [Admin]
+      summary: Hapus klasifikasi
+      parameters: [{ $ref: "#/components/parameters/PathID" }]
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+
+  /api/admin/booster:
+    get:
+      tags: [Admin]
+      summary: Daftar booster
+      responses:
+        "200":
+          description: Booster
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Booster" }
+    post:
+      tags: [Admin]
+      summary: Buat booster
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/BoosterInput" }
+      responses:
+        "201": { $ref: "#/components/responses/Created" }
+
+  /api/admin/booster/{id}:
+    patch:
+      tags: [Admin]
+      summary: Ubah booster
+      parameters: [{ $ref: "#/components/parameters/PathID" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/BoosterInput" }
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+    delete:
+      tags: [Admin]
+      summary: Hapus booster
+      parameters: [{ $ref: "#/components/parameters/PathID" }]
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+
+  /api/admin/events:
+    get:
+      tags: [Admin]
+      summary: Jadwal event mingguan
+      responses:
+        "200":
+          description: Event terjadwal
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/WeeklyEvent" }
+    post:
+      tags: [Admin]
+      summary: Jadwalkan event untuk satu minggu
+      description: Hanya satu event boleh aktif dalam satu waktu — tidak ada penumpukan pengali.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [minggu_ke, event_code, tanggal_mulai, tanggal_selesai]
+              properties:
+                minggu_ke: { type: integer, minimum: 1, maximum: 12 }
+                event_code: { type: string, example: POWER_TEAM }
+                tanggal_mulai: { type: string, format: date }
+                tanggal_selesai: { type: string, format: date }
+      responses:
+        "201": { $ref: "#/components/responses/Created" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+
+  /api/admin/events/{id}:
+    delete:
+      tags: [Admin]
+      summary: Hapus event terjadwal
+      parameters: [{ $ref: "#/components/parameters/PathID" }]
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+
+  /api/admin/passes/weekly:
+    post:
+      tags: [Admin]
+      summary: Jalankan pass mingguan
+      description: |
+        Menyelesaikan bonus Full Roster, STREAK, dan pelunasan ONE_TO_ONE.
+        Idempoten per periode: menjalankan dua kali tidak membayar dua kali.
+      responses:
+        "200": { $ref: "#/components/responses/PassResult" }
+
+  /api/admin/passes/daily:
+    post:
+      tags: [Admin]
+      summary: Jalankan pass harian
+      description: Menyelesaikan bonus HIGH_ROLLER. Idempoten per hari.
+      responses:
+        "200": { $ref: "#/components/responses/PassResult" }
+
+  /api/admin/prizes:
+    get:
+      tags: [Admin]
+      summary: Prize pool lengkap
+      responses:
+        "200":
+          description: Hadiah
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Prize" }
+    post:
+      tags: [Admin]
+      summary: Tambahkan hadiah panitia
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PrizeInput" }
+      responses:
+        "201": { $ref: "#/components/responses/Created" }
+
+  /api/admin/prizes/{id}:
+    patch:
+      tags: [Admin]
+      summary: Setujui, tolak, atau serahkan hadiah
+      parameters: [{ $ref: "#/components/parameters/PathID" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status: { type: string, enum: [pending, approved, rejected, awarded] }
+                pemenang_id: { type: string, format: uuid, nullable: true }
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+    delete:
+      tags: [Admin]
+      summary: Hapus hadiah
+      parameters: [{ $ref: "#/components/parameters/PathID" }]
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+
+  /api/admin/raffle/issue:
+    post:
+      tags: [Admin]
+      summary: Terbitkan ulang tiket undian
+      description: |
+        Menghitung ulang hak tiket seluruh anggota dari total musim berjalan:
+        `floor(skor/100)` + 1 per tamu yang hadir + 1 per pasangan TYFCB baru.
+        Menulis ulang, bukan menambah, sehingga aman dijalankan berkali-kali.
+      responses:
+        "200":
+          description: Kepemilikan tiket setelah perhitungan ulang
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/TicketSummary" }
+
+  /api/admin/raffle/draw/{id}:
+    post:
+      tags: [Admin]
+      summary: Undi pemenang satu hadiah
+      description: |
+        Peluang sebanding dengan jumlah tiket. Sekali diundi tidak bisa
+        diulang — hasilnya sudah diumumkan di ruangan.
+      parameters: [{ $ref: "#/components/parameters/PathID" }]
+      responses:
+        "200":
+          description: Hadiah beserta pemenangnya
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Prize" }
+        "400":
+          description: Hadiah bukan alokasi undian, atau belum ada tiket
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "409":
+          description: Hadiah ini sudah diundi
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /api/admin/spheres:
+    get:
+      tags: [Admin]
+      summary: Daftar contact sphere
+      responses:
+        "200":
+          description: Sphere
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/ContactSphere" }
+    post:
+      tags: [Admin]
+      summary: Buat contact sphere
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [nama, klasifikasi_ids]
+              properties:
+                nama: { type: string }
+                deskripsi: { type: string, nullable: true }
+                klasifikasi_ids:
+                  type: array
+                  minItems: 2
+                  items: { type: string, format: uuid }
+      responses:
+        "201": { $ref: "#/components/responses/Created" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+
+  /api/admin/spheres/{id}/members:
+    patch:
+      tags: [Admin]
+      summary: Setel klasifikasi anggota sphere
+      parameters: [{ $ref: "#/components/parameters/PathID" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                klasifikasi_ids:
+                  type: array
+                  items: { type: string, format: uuid }
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+
+  /api/admin/spheres/{id}:
+    delete:
+      tags: [Admin]
+      summary: Hapus contact sphere
+      parameters: [{ $ref: "#/components/parameters/PathID" }]
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+
+  /api/admin/one-to-one/{id}:
+    delete:
+      tags: [Admin]
+      summary: Hapus catatan 1-2-1
+      parameters: [{ $ref: "#/components/parameters/PathID" }]
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+
+  /api/admin/export/{report}:
+    get:
+      tags: [Export]
+      summary: Unduh laporan
+      description: |
+        Filter yang sama dengan layar daftar ikut terbawa, sehingga hasil
+        unduhan sama persis dengan yang sedang dilihat. Satu sheet dibatasi
+        5000 baris, dan bila terpotong laporannya menyebutkan hal itu.
+      parameters:
+        - name: report
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [leaderboard, tyfcb, visitors, members, prizes]
+        - { $ref: "#/components/parameters/Format" }
+        - { $ref: "#/components/parameters/Search" }
+        - { $ref: "#/components/parameters/TeamID" }
+        - name: status
+          in: query
+          schema: { type: string }
+        - name: converted
+          in: query
+          schema: { type: boolean }
+        - { $ref: "#/components/parameters/DateFrom" }
+        - { $ref: "#/components/parameters/DateTo" }
+      responses:
+        "200": { $ref: "#/components/responses/FileDownload" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+
+components:
+  securitySchemes:
+    apiKeyHeader:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: Kunci API pada header khusus.
+    bearerKey:
+      type: http
+      scheme: bearer
+      description: Kunci API yang sama, dikirim sebagai bearer token.
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: brag_session
+      description: Cookie sesi dari `POST /api/auth/login`.
+
+  parameters:
+    PathID:
+      name: id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    Limit:
+      name: limit
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 200, default: 25 }
+      description: Jumlah baris per halaman. Di atas 200 dipangkas ke 200.
+    Offset:
+      name: offset
+      in: query
+      schema: { type: integer, minimum: 0, default: 0 }
+    Search:
+      name: q
+      in: query
+      schema: { type: string }
+      description: Pencarian teks bebas.
+    TeamID:
+      name: team_id
+      in: query
+      schema: { type: string, format: uuid }
+    DateFrom:
+      name: from
+      in: query
+      schema: { type: string, format: date }
+    DateTo:
+      name: to
+      in: query
+      schema: { type: string, format: date }
+    Kategori:
+      name: kategori
+      in: query
+      schema: { type: string, enum: [overall, tyfcb, visitor], default: overall }
+      description: Kategori yang menjadi dasar pemeringkatan.
+    KategoriLedger:
+      name: kategori
+      in: query
+      schema: { type: string, enum: [tyfcb, visitor, bonus] }
+    Format:
+      name: format
+      in: query
+      schema: { type: string, enum: [xlsx, pdf, csv], default: xlsx }
+
+  responses:
+    Ok:
+      description: Berhasil
+      content:
+        application/json:
+          schema:
+            type: object
+            properties: { ok: { type: boolean, example: true } }
+    Created:
+      description: Dibuat
+      content:
+        application/json:
+          schema:
+            type: object
+            properties: { id: { type: string, format: uuid } }
+    BadRequest:
+      description: Input tidak valid
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Unauthorized:
+      description: Belum masuk atau kredensial tidak berlaku
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Forbidden:
+      description: Peran tidak mencukupi
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    NotFound:
+      description: Tidak ditemukan
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Conflict:
+      description: Bentrok dengan keadaan sekarang
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    TooManyRequests:
+      description: Terlalu sering — coba lagi nanti
+    FileDownload:
+      description: Berkas laporan
+      content:
+        application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+          schema: { type: string, format: binary }
+        application/pdf:
+          schema: { type: string, format: binary }
+        text/csv:
+          schema: { type: string }
+    Leaderboard:
+      description: Klasemen
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              teams:
+                type: array
+                items: { $ref: "#/components/schemas/TeamScore" }
+              members:
+                type: array
+                items: { $ref: "#/components/schemas/MemberScore" }
+    LedgerList:
+      description: Baris ledger
+      content:
+        application/json:
+          schema:
+            type: array
+            items: { $ref: "#/components/schemas/LedgerEntry" }
+    PassResult:
+      description: Ringkasan penyelesaian
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/PassResult" }
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        error: { type: string, example: Nilai transaksi tidak valid. }
+
+    Page:
+      type: object
+      properties:
+        total: { type: integer }
+        limit: { type: integer }
+        offset: { type: integer }
+
+    User:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        full_name: { type: string }
+        email: { type: string, format: email }
+        role: { type: string, enum: [member, captain, admin, superadmin] }
+
+    Member:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        user_id: { type: string, format: uuid }
+        season_id: { type: string, format: uuid }
+        team_id: { type: string, format: uuid, nullable: true }
+        klasifikasi_id: { type: string, format: uuid, nullable: true }
+        color_status:
+          type: string
+          enum: [merah, kuning, hijau]
+          description: Tingkat keaktifan. Naik satu tingkat memicu bonus Level Up.
+        is_active: { type: boolean }
+        full_name: { type: string }
+        email: { type: string, format: email }
+        role: { type: string }
+        nama_tim: { type: string, nullable: true }
+        klasifikasi_nama: { type: string, nullable: true }
+
+    MemberInput:
+      type: object
+      properties:
+        full_name: { type: string }
+        email: { type: string, format: email }
+        password: { type: string, format: password }
+        role: { type: string, enum: [member, captain, admin] }
+        team_id: { type: string, format: uuid, nullable: true }
+        klasifikasi_id: { type: string, format: uuid, nullable: true }
+        color_status: { type: string, enum: [merah, kuning, hijau] }
+        is_active: { type: boolean }
+
+    TyfcbInput:
+      type: object
+      required: [buyer_id, nilai, tanggal]
+      properties:
+        buyer_id:
+          type: string
+          format: uuid
+          description: Pembeli — pihak yang memperoleh poin.
+        nilai: { type: number, format: double, example: 18000000 }
+        tanggal: { type: string, format: date }
+
+    TyfcbEntry:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        season_id: { type: string, format: uuid }
+        giver_id: { type: string, format: uuid, description: Pembeli }
+        receiver_id: { type: string, format: uuid, description: Penjual }
+        nilai: { type: number, format: double }
+        tanggal: { type: string, format: date-time }
+        status: { type: string, enum: [pending, verified, rejected, void] }
+        computed_score:
+          type: integer
+          nullable: true
+          description: round(Band × PairPenalty × EventMultiplier)
+        pair_ordinal:
+          type: integer
+          nullable: true
+          description: Transaksi ke-n antara pasangan yang sama; nilainya 1/n dari band.
+        event_multiplier_applied: { type: number, nullable: true }
+        rejection_reason: { type: string, nullable: true }
+        giver_name: { type: string }
+        receiver_name: { type: string }
+        created_at: { type: string, format: date-time }
+
+    VisitorInput:
+      type: object
+      required: [nama, kontak, tanggal_undang]
+      properties:
+        nama: { type: string }
+        kontak: { type: string, description: Unik per musim }
+        tanggal_undang: { type: string, format: date }
+
+    Visitor:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        season_id: { type: string, format: uuid }
+        nama: { type: string }
+        kontak: { type: string }
+        inviter_id: { type: string, format: uuid }
+        inviter_name: { type: string }
+        nama_tim: { type: string, nullable: true }
+        tanggal_undang: { type: string, format: date-time }
+        status_hadir: { type: string, enum: [terdaftar, hadir, hadir_penuh] }
+        is_converted: { type: boolean }
+        is_void: { type: boolean }
+        tanggal_konversi: { type: string, format: date-time, nullable: true }
+        created_at: { type: string, format: date-time }
+
+    TeamScore:
+      type: object
+      properties:
+        team_id: { type: string, format: uuid }
+        nama_tim: { type: string }
+        score_overall: { type: integer }
+        score_tyfcb: { type: integer }
+        score_visitor: { type: integer }
+        score_bonus: { type: integer, description: Bonus hanya masuk Overall }
+        nilai_tyfcb: { type: number, format: double }
+        count_tyfcb: { type: integer }
+        count_visitor: { type: integer }
+
+    MemberScore:
+      type: object
+      properties:
+        member_id: { type: string, format: uuid }
+        full_name: { type: string }
+        nama_tim: { type: string, nullable: true }
+        score_overall: { type: integer }
+        score_tyfcb: { type: integer }
+        score_visitor: { type: integer }
+        score_bonus: { type: integer }
+
+    LedgerEntry:
+      type: object
+      description: |
+        Ledger bersifat append-only. Koreksi ditulis sebagai baris baru
+        bertanda berlawanan, tidak pernah dengan mengubah atau menghapus.
+      properties:
+        id: { type: string, format: uuid }
+        season_id: { type: string, format: uuid }
+        member_id: { type: string, format: uuid, nullable: true }
+        team_id: { type: string, format: uuid, nullable: true }
+        kategori: { type: string, enum: [tyfcb, visitor, bonus] }
+        points: { type: integer }
+        sumber_ref: { type: string, nullable: true }
+        keterangan: { type: string, nullable: true }
+        created_at: { type: string, format: date-time }
+
+    Dashboard:
+      type: object
+      properties:
+        member_score: { $ref: "#/components/schemas/MemberScore" }
+        teams:
+          type: array
+          items: { $ref: "#/components/schemas/TeamScore" }
+        recent_tyfcb:
+          type: array
+          items: { $ref: "#/components/schemas/TyfcbEntry" }
+        total_tyfcb_tx: { type: integer }
+        total_tyfcb_idr: { type: number, format: double }
+        total_visitor: { type: integer }
+
+    Badge:
+      type: object
+      properties:
+        badge_code: { type: string, example: CENTURION }
+        nama: { type: string }
+        deskripsi: { type: string }
+        ikon: { type: string, nullable: true }
+
+    Booster:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        judul: { type: string }
+        deskripsi: { type: string }
+        tanggal_mulai: { type: string, format: date-time }
+        tanggal_berakhir: { type: string, format: date-time }
+        poin: { type: integer }
+        status: { type: string, enum: [aktif, nonaktif] }
+
+    BoosterInput:
+      type: object
+      required: [judul, tanggal_mulai, tanggal_berakhir]
+      properties:
+        judul: { type: string }
+        deskripsi: { type: string }
+        tanggal_mulai: { type: string, format: date }
+        tanggal_berakhir: { type: string, format: date }
+        poin: { type: integer }
+        status: { type: string, enum: [aktif, nonaktif] }
+
+    WeeklyEvent:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        season_id: { type: string, format: uuid }
+        minggu_ke: { type: integer, minimum: 1, maximum: 12 }
+        event_code: { type: string }
+        tanggal_mulai: { type: string, format: date-time }
+        tanggal_selesai: { type: string, format: date-time }
+
+    Prize:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        nama_hadiah: { type: string }
+        deskripsi: { type: string, nullable: true }
+        nilai_estimasi: { type: number, nullable: true }
+        donatur_id: { type: string, format: uuid, nullable: true }
+        donatur_nama: { type: string, nullable: true }
+        alokasi:
+          type: string
+          enum: [kategori, undian]
+          description: kategori untuk pemenang leaderboard; undian dibagikan lewat tiket.
+        kategori_target: { type: string, nullable: true }
+        status: { type: string, enum: [pending, approved, rejected, awarded] }
+        pemenang_id: { type: string, format: uuid, nullable: true }
+        pemenang_nama: { type: string, nullable: true }
+
+    PrizeInput:
+      type: object
+      required: [nama_hadiah, alokasi]
+      properties:
+        nama_hadiah: { type: string }
+        deskripsi: { type: string, nullable: true }
+        nilai_estimasi: { type: number, nullable: true }
+        alokasi: { type: string, enum: [kategori, undian] }
+        kategori_target: { type: string, nullable: true }
+
+    TicketSummary:
+      type: object
+      properties:
+        member_id: { type: string, format: uuid }
+        full_name: { type: string }
+        nama_tim: { type: string, nullable: true }
+        tickets: { type: integer }
+
+    ContactSphere:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        nama: { type: string }
+        deskripsi: { type: string, nullable: true }
+        klasifikasi:
+          type: array
+          items: { $ref: "#/components/schemas/Classification" }
+
+    Classification:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        nama: { type: string }
+
+    Team:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        nama_tim: { type: string }
+        season_id: { type: string, format: uuid }
+
+    CaptainTeam:
+      type: object
+      properties:
+        team: { $ref: "#/components/schemas/Team" }
+        members:
+          type: array
+          items: { $ref: "#/components/schemas/Member" }
+
+    OneToOne:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        member_a: { type: string, format: uuid }
+        member_b: { type: string, format: uuid }
+        nama_a: { type: string }
+        nama_b: { type: string }
+        tanggal: { type: string, format: date-time }
+        catatan: { type: string, nullable: true }
+
+    ActivityItem:
+      type: object
+      properties:
+        kategori: { type: string }
+        keterangan: { type: string }
+        points: { type: integer }
+        member_name: { type: string, nullable: true }
+        nama_tim: { type: string, nullable: true }
+        created_at: { type: string, format: date-time }
+
+    PassResult:
+      type: object
+      properties:
+        period: { type: string }
+        full_roster_teams:
+          type: array
+          items: { type: string }
+        streak_awards: { type: integer }
+        one_to_one_awards: { type: integer }
+        high_roller_member: { type: string, nullable: true }
+        points_added: { type: integer }
+        skipped:
+          type: array
+          items: { type: string }
+          description: Yang dilewati karena sudah diselesaikan sebelumnya.
+
+    APIKey:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        nama: { type: string }
+        prefix:
+          type: string
+          description: Awalan kunci yang terlihat, untuk membedakan kunci. Bukan rahasia.
+          example: brag_rA6bOQv
+        user_id: { type: string, format: uuid }
+        user_name: { type: string }
+        user_email: { type: string, format: email }
+        read_only: { type: boolean }
+        last_used_at: { type: string, format: date-time, nullable: true }
+        expires_at: { type: string, format: date-time, nullable: true }
+        revoked_at: { type: string, format: date-time, nullable: true }
+        created_at: { type: string, format: date-time }

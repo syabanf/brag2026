@@ -3,6 +3,7 @@ import { Link, NavLink, useNavigate } from "react-router-dom";
 import {
   BarChart3,
   Home,
+  KeyRound,
   LogOut,
   Plus,
   Shield,
@@ -106,6 +107,14 @@ export function AppShell({ children }: { children: ReactNode }) {
                 >
                   <BarChart3 className="h-4 w-4" />
                   Riwayat
+                </Link>
+                <Link
+                  to="/api-keys"
+                  onClick={() => setMenuOpen(false)}
+                  className="flex items-center gap-2 px-4 py-3 text-sm font-semibold text-ink transition hover:bg-brand-50"
+                >
+                  <KeyRound className="h-4 w-4" />
+                  Kunci API
                 </Link>
                 <button
                   type="button"

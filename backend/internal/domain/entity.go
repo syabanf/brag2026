@@ -295,3 +295,42 @@ type TyfcbStatusChange struct {
 	// describes it.
 	Reason *string
 }
+
+// APIKey is machine access to the API. It authenticates as a user and
+// inherits that user's role, so the route guards need no second permission
+// model — a key can never reach anything its owner could not.
+type APIKey struct {
+	ID   string `json:"id"`
+	Nama string `json:"nama"`
+	// Prefix is the visible start of the key, kept so a person can tell their
+	// keys apart. It identifies; it does not open anything.
+	Prefix     string     `json:"prefix"`
+	UserID     string     `json:"user_id"`
+	UserName   string     `json:"user_name,omitempty"`
+	UserEmail  string     `json:"user_email,omitempty"`
+	ReadOnly   bool       `json:"read_only"`
+	LastUsedAt *time.Time `json:"last_used_at"`
+	ExpiresAt  *time.Time `json:"expires_at"`
+	RevokedAt  *time.Time `json:"revoked_at"`
+	CreatedAt  time.Time  `json:"created_at"`
+}
+
+// Active reports whether the key may still be used.
+func (k *APIKey) Active(now time.Time) bool {
+	if k.RevokedAt != nil {
+		return false
+	}
+	return k.ExpiresAt == nil || k.ExpiresAt.After(now)
+}
+
+// Status describes a key for the management screen in one word.
+func (k *APIKey) Status(now time.Time) string {
+	switch {
+	case k.RevokedAt != nil:
+		return "revoked"
+	case k.ExpiresAt != nil && !k.ExpiresAt.After(now):
+		return "expired"
+	default:
+		return "active"
+	}
+}

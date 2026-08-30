@@ -61,6 +61,7 @@ func main() {
 	activityRepo := postgres.NewActivityRepo(db)
 	sphereRepo := postgres.NewContactSphereRepo(db)
 	oneToOneRepo := postgres.NewOneToOneRepo(db)
+	apiKeyRepo := postgres.NewAPIKeyRepo(db)
 
 	// Use cases (application layer).
 	badgeUC := usecase.NewBadges(badges)
@@ -72,6 +73,7 @@ func main() {
 	passUC := usecase.NewScoringPass(passRepo, ledger, events, oneToOneRepo, seasons, badgeUC, db)
 	prizeUC := usecase.NewPrize(prizeRepo, members, seasons, badgeUC, db)
 	networkUC := usecase.NewNetwork(sphereRepo, oneToOneRepo, members, seasons, db)
+	apiKeysUC := usecase.NewAPIKeys(apiKeyRepo, users)
 	reportsUC := usecase.NewReports(ledger, members, tyfcbRepo, visitorRepo, prizeRepo, seasons)
 	leaderboardUC := usecase.NewLeaderboard(ledger, members, tyfcbRepo, visitorRepo, boosters, badges, activityRepo, seasons)
 
@@ -88,6 +90,7 @@ func main() {
 		Prizes:      prizeUC,
 		Network:     networkUC,
 		Reports:     reportsUC,
+		APIKeys:     apiKeysUC,
 		Seasons:     seasons,
 		MemberRepo:  members,
 		Events:      events,

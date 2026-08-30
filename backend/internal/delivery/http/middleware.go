@@ -3,6 +3,7 @@ package http
 import (
 	"context"
 	"net/http"
+	"strings"
 
 	"github.com/ikurniawann/brag2026/backend/internal/domain"
 )
@@ -27,8 +28,49 @@ func memberFrom(ctx context.Context) *domain.Member {
 // authenticate resolves the session cookie onto a user, but does not reject
 // anonymous callers — that is requireAuth's job. Splitting them lets public
 // endpoints still personalise when a session happens to be present.
+// presentedKey pulls an API key from either header. Authorization is what a
+// client library will reach for; X-API-Key is what a curl example is easiest
+// to write with, and both are common enough that supporting one would just
+// mean answering the question repeatedly.
+func presentedKey(r *http.Request) string {
+	if v := strings.TrimSpace(r.Header.Get("X-API-Key")); v != "" {
+		return v
+	}
+	if v := r.Header.Get("Authorization"); len(v) > 7 && strings.EqualFold(v[:7], "bearer ") {
+		return strings.TrimSpace(v[7:])
+	}
+	return ""
+}
+
 func (s *Server) authenticate(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// A key is checked first: a request that presents one is a machine,
+		// and should not silently fall back to whatever cookie the browser
+		// happened to attach.
+		if presented := presentedKey(r); presented != "" {
+			user, key, err := s.apiKeys.Authenticate(r.Context(), presented)
+			if err != nil {
+				fail(w, err)
+				return
+			}
+			if user == nil {
+				// Unknown, revoked and expired are all one answer, so a caller
+				// cannot use the difference to probe.
+				fail(w, domain.NewError(domain.ErrUnauthorized, "Kunci API tidak valid."))
+				return
+			}
+			// Read-only is the only permission a key carries of its own; the
+			// role checks downstream are the owner's, unchanged.
+			if key.ReadOnly && r.Method != http.MethodGet && r.Method != http.MethodHead {
+				fail(w, domain.Forbidden("Kunci API ini hanya untuk membaca."))
+				return
+			}
+
+			s.apiKeys.TouchQuietly(r.Context(), key.ID)
+			next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), ctxUser, user)))
+			return
+		}
+
 		cookie, err := r.Cookie(s.cfg.CookieName)
 		if err != nil || cookie.Value == "" {
 			next.ServeHTTP(w, r)

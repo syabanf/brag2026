@@ -10,6 +10,7 @@ import (
 	"github.com/go-chi/httprate"
 
 	"github.com/ikurniawann/brag2026/backend/internal/config"
+	"github.com/ikurniawann/brag2026/backend/internal/delivery/http/apidocs"
 	"github.com/ikurniawann/brag2026/backend/internal/domain"
 	"github.com/ikurniawann/brag2026/backend/internal/repository/postgres"
 	"github.com/ikurniawann/brag2026/backend/internal/usecase"
@@ -30,6 +31,7 @@ type Server struct {
 	prizes      *usecase.Prize
 	network     *usecase.Network
 	reports     *usecase.Reports
+	apiKeys     *usecase.APIKeys
 
 	seasons    domain.SeasonRepository
 	memberRepo domain.MemberRepository
@@ -49,6 +51,7 @@ type Deps struct {
 	Prizes      *usecase.Prize
 	Network     *usecase.Network
 	Reports     *usecase.Reports
+	APIKeys     *usecase.APIKeys
 	Seasons     domain.SeasonRepository
 	MemberRepo  domain.MemberRepository
 	Events      domain.WeeklyEventRepository
@@ -59,7 +62,7 @@ func NewServer(d Deps) *Server {
 		cfg: d.Config, db: d.DB,
 		auth: d.Auth, members: d.Members, tyfcb: d.Tyfcb,
 		visitors: d.Visitors, catalog: d.Catalog, leaderboard: d.Leaderboard,
-		passes: d.Passes, prizes: d.Prizes, network: d.Network, reports: d.Reports,
+		passes: d.Passes, prizes: d.Prizes, network: d.Network, reports: d.Reports, apiKeys: d.APIKeys,
 		seasons: d.Seasons, memberRepo: d.MemberRepo, events: d.Events,
 	}
 }
@@ -90,6 +93,10 @@ func (s *Server) Router() http.Handler {
 
 	r.Route("/api", func(r chi.Router) {
 		r.Get("/health", s.handleHealth)
+
+		// The reference describes how to get a credential, so it cannot
+		// itself require one.
+		r.Mount("/docs", http.StripPrefix("/api/docs", apidocs.Handler()))
 
 		// Public: the shareable leaderboard needs no session.
 		r.Group(func(r chi.Router) {
@@ -128,6 +135,12 @@ func (s *Server) Router() http.Handler {
 			// Members may take the leaderboard away with them; the other
 			// reports carry personal data and stay under /admin.
 			r.Get("/export/leaderboard", s.handleExportLeaderboard)
+
+			// Anyone signed in manages their own keys; an admin sees them all,
+			// which the use case decides rather than the route.
+			r.Get("/api-keys", s.handleListAPIKeys)
+			r.Post("/api-keys", s.handleCreateAPIKey)
+			r.Delete("/api-keys/{id}", s.handleRevokeAPIKey)
 			r.Get("/spheres", s.handleListSpheres)
 			r.Get("/one-to-one", s.handleListOneToOne)
 

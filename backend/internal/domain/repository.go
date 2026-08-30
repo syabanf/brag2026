@@ -252,3 +252,18 @@ type WeeklyEventRepository interface {
 type TxManager interface {
 	WithinTx(ctx context.Context, fn func(ctx context.Context) error) error
 }
+
+// APIKeyRepository stores machine credentials. Only the digest is kept: the
+// key itself is shown once at creation and is unrecoverable afterwards.
+type APIKeyRepository interface {
+	// FindByHash is on the path of every API-key request, so it returns the
+	// key and its owner together rather than making the caller join.
+	FindByHash(ctx context.Context, hash string) (*APIKey, *User, error)
+	ListByUser(ctx context.Context, userID string) ([]APIKey, error)
+	List(ctx context.Context) ([]APIKey, error)
+	Create(ctx context.Context, k *APIKey, hash string, createdBy string) (string, error)
+	Revoke(ctx context.Context, id, revokedBy string) (bool, error)
+	// TouchLastUsed is best-effort: a failure here must never fail the request
+	// the key was authenticating.
+	TouchLastUsed(ctx context.Context, id string) error
+}

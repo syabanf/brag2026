@@ -1,5 +1,7 @@
 import type {
   ActivityItem,
+  APIKey,
+  CreatedAPIKey,
   Badge,
   BoosterEvent,
   CaptainTeam,
@@ -189,6 +191,17 @@ export const api = {
 
   raffle: {
     tickets: () => get<TicketSummary[]>("/raffle/tickets"),
+  },
+
+  apiKeys: {
+    list: () => get<APIKey[]>("/api-keys"),
+    create: (body: {
+      nama: string;
+      read_only: boolean;
+      expires_in_days: number;
+      user_id?: string;
+    }) => post<CreatedAPIKey>("/api-keys", body),
+    revoke: (id: string) => del<{ ok: boolean }>(`/api-keys/${id}`),
   },
 
   spheres: () => get<ContactSphere[]>("/spheres"),
