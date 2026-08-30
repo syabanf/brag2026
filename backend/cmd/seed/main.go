@@ -125,6 +125,32 @@ type world struct {
 	season  *domain.Season
 	adminID string
 	members []domain.Member
+	// seen records which members already have each kind of activity. The
+	// random spread above leaves gaps — roughly two in five members ended up
+	// with no visitor at all — and someone logging in as one of them meets an
+	// empty screen. Tracking as we go beats querying it back afterwards.
+	seen coverage
+}
+
+// coverage is one set per thing a member can be missing.
+type coverage struct {
+	// bought and sold count only verified transactions, and invited only
+	// guests who actually turned up. Recording on creation instead would mark
+	// a member covered by an entry still sitting in the pending queue, or by
+	// a guest worth nothing — and their screen would still be empty.
+	bought   map[string]bool
+	sold     map[string]bool
+	invited  map[string]bool
+	oneToOne map[string]bool
+}
+
+func newCoverage() coverage {
+	return coverage{
+		bought:   map[string]bool{},
+		sold:     map[string]bool{},
+		invited:  map[string]bool{},
+		oneToOne: map[string]bool{},
+	}
 }
 
 func generate(ctx context.Context, db *postgres.DB) error {
@@ -168,6 +194,9 @@ func generate(ctx context.Context, db *postgres.DB) error {
 	}
 	if err := seedOneToOne(ctx, network, w, rng); err != nil {
 		return fmt.Errorf("one-to-one: %w", err)
+	}
+	if err := fillGaps(ctx, tyfcb, visitors, network, w, rng); err != nil {
+		return fmt.Errorf("gaps: %w", err)
 	}
 	// Before the passes, not after: the weekly pass windows on these
 	// timestamps, so settling first would award a bonus the data no longer
@@ -216,7 +245,7 @@ func loadWorld(
 
 	// A stable order, so the same members get the same activity on a re-run.
 	sortMembersByID(roster)
-	return &world{season: season, adminID: admin.ID, members: roster}, nil
+	return &world{season: season, adminID: admin.ID, members: roster, seen: newCoverage()}, nil
 }
 
 // seedTyfcb files transactions and then moderates them. Submitting through the
@@ -267,6 +296,8 @@ func seedTyfcb(ctx context.Context, uc *usecase.Tyfcb, w *world, rng *rand.Rand)
 			if err := uc.SetStatus(ctx, entry.ID, domain.TyfcbVerified, w.adminID, nil); err != nil {
 				return err
 			}
+			w.seen.bought[buyer.ID] = true
+			w.seen.sold[seller.ID] = true
 			verified++
 		case roll < 9:
 			pending++
@@ -329,6 +360,8 @@ func coverTeams(ctx context.Context, uc *usecase.Tyfcb, w *world, rng *rand.Rand
 			if err := uc.SetStatus(ctx, entry.ID, domain.TyfcbVerified, w.adminID, nil); err != nil {
 				return written, err
 			}
+			w.seen.bought[buyer.ID] = true
+			w.seen.sold[seller.ID] = true
 			written++
 		}
 	}
@@ -373,6 +406,7 @@ func seedVisitors(ctx context.Context, uc *usecase.Visitor, w *world, rng *rand.
 		if err := uc.Update(ctx, visitor.ID, usecase.UpdateVisitorInput{StatusHadir: &status}); err != nil {
 			return err
 		}
+		w.seen.invited[inviter.ID] = true
 		if status == string(domain.VisitorHadirPenuh) {
 			penuh++
 		} else {
@@ -431,6 +465,8 @@ func seedStandouts(
 			if err := tyfcb.SetStatus(ctx, entry.ID, domain.TyfcbVerified, w.adminID, nil); err != nil {
 				return err
 			}
+			w.seen.bought[star.ID] = true
+			w.seen.sold[seller.ID] = true
 			partners++
 		}
 
@@ -450,6 +486,7 @@ func seedStandouts(
 			if err := visitors.Update(ctx, visitor.ID, usecase.UpdateVisitorInput{StatusHadir: &penuh}); err != nil {
 				return err
 			}
+			w.seen.invited[star.ID] = true
 			guests++
 
 			// The first guest of each standout joins, so CLOSER is not down
@@ -464,6 +501,117 @@ func seedStandouts(
 	}
 
 	fmt.Printf("→ %d standouts (%d partners, %d guests)\n", len(stars), partners, guests)
+	return nil
+}
+
+// fillGaps gives every active member the minimum that keeps their screens from
+// being empty: something they bought, something they sold, a guest they
+// invited, and a one-to-one. The random spread above is realistic in shape but
+// leaves holes — two in five members ended up with no visitor — and a demo
+// where the account you happen to open has nothing on it demonstrates nothing.
+//
+// It runs before the passes and the raffle, so the points, tickets and badges
+// that follow all account for what it adds.
+func fillGaps(
+	ctx context.Context,
+	tyfcb *usecase.Tyfcb,
+	visitors *usecase.Visitor,
+	network *usecase.Network,
+	w *world,
+	rng *rand.Rand,
+) error {
+	var bought, sold, invited, met int
+
+	// A partner for member i that is never member i itself.
+	partner := func(i int) domain.Member {
+		return w.members[(i+1+rng.Intn(len(w.members)-1))%len(w.members)]
+	}
+
+	for i, m := range w.members {
+		if !m.IsActive {
+			continue
+		}
+
+		// Bought from someone: this is what earns points, so it also lifts
+		// the member off zero and into the raffle.
+		if !w.seen.bought[m.ID] {
+			seller := partner(i)
+			entry, err := tyfcb.Submit(ctx, usecase.SubmitTyfcbInput{
+				BuyerID: m.ID, SellerID: seller.ID,
+				Nilai:   nilaiLadder[rng.Intn(len(nilaiLadder))],
+				Tanggal: daysIntoThisWeek(rng),
+			}, &w.adminID)
+			if err != nil {
+				return err
+			}
+			if err := tyfcb.SetStatus(ctx, entry.ID, domain.TyfcbVerified, w.adminID, nil); err != nil {
+				return err
+			}
+			w.seen.bought[m.ID] = true
+			w.seen.sold[seller.ID] = true
+			bought++
+		}
+
+		// Sold to someone, so their own history has both sides.
+		if !w.seen.sold[m.ID] {
+			buyer := partner(i)
+			entry, err := tyfcb.Submit(ctx, usecase.SubmitTyfcbInput{
+				BuyerID: buyer.ID, SellerID: m.ID,
+				Nilai:   nilaiLadder[rng.Intn(len(nilaiLadder))],
+				Tanggal: daysIntoThisWeek(rng),
+			}, &w.adminID)
+			if err != nil {
+				return err
+			}
+			if err := tyfcb.SetStatus(ctx, entry.ID, domain.TyfcbVerified, w.adminID, nil); err != nil {
+				return err
+			}
+			w.seen.bought[buyer.ID] = true
+			w.seen.sold[m.ID] = true
+			sold++
+		}
+
+		if !w.seen.invited[m.ID] {
+			visitor, err := visitors.Register(ctx, usecase.RegisterVisitorInput{
+				Nama:          fmt.Sprintf("Tamu Undangan %03d", i+1),
+				Kontak:        fmt.Sprintf("08%010d", 95_000_000+i*29),
+				TanggalUndang: time.Now().AddDate(0, 0, -(1 + rng.Intn(12))),
+				InviterID:     m.ID,
+			}, &w.adminID)
+			if err != nil {
+				return err
+			}
+			// Attending, not merely registered — a guest worth zero points
+			// leaves the visitor card looking as empty as no guest at all.
+			status := string(domain.VisitorHadir)
+			if rng.Intn(2) == 0 {
+				status = string(domain.VisitorHadirPenuh)
+			}
+			if err := visitors.Update(ctx, visitor.ID, usecase.UpdateVisitorInput{StatusHadir: &status}); err != nil {
+				return err
+			}
+			w.seen.invited[m.ID] = true
+			invited++
+		}
+
+		if !w.seen.oneToOne[m.ID] {
+			other := partner(i)
+			catatan := "Perkenalan bisnis dan peluang referral."
+			if _, err := network.LogOneToOne(ctx, usecase.LogOneToOneInput{
+				MemberA: m.ID, MemberB: other.ID,
+				Tanggal: time.Now().AddDate(0, 0, -rng.Intn(13)),
+				Catatan: &catatan,
+			}, &w.adminID); err != nil {
+				// A duplicate pair on the same day is harmless here.
+				continue
+			}
+			w.seen.oneToOne[m.ID] = true
+			w.seen.oneToOne[other.ID] = true
+			met++
+		}
+	}
+
+	fmt.Printf("→ gaps filled: %d beli, %d jual, %d visitor, %d 1-2-1\n", bought, sold, invited, met)
 	return nil
 }
 
@@ -510,6 +658,8 @@ func seedOneToOne(ctx context.Context, uc *usecase.Network, w *world, rng *rand.
 			// A duplicate pair on the same day is expected and uninteresting.
 			continue
 		}
+		w.seen.oneToOne[a.ID] = true
+		w.seen.oneToOne[b.ID] = true
 		logged++
 	}
 
