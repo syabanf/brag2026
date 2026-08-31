@@ -57,7 +57,7 @@ export function AdminTyfcbPage() {
   const counts = data?.counts ?? {};
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 lg:space-y-6">
       <PageHeader
         eyebrow="Admin Area"
         title="Verifikasi TYFCB"
@@ -98,7 +98,7 @@ export function AdminTyfcbPage() {
 
       <div className="space-y-2.5">
         {data?.entries.map((entry) => (
-          <div key={entry.id} className="card p-3.5">
+          <div key={entry.id} className="card-row">
             <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
@@ -328,7 +328,7 @@ export function AdminVisitorsPage() {
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 lg:space-y-6">
       <PageHeader
         eyebrow="Admin Area"
         title="Kelola Visitor"
@@ -403,7 +403,7 @@ function VisitorRow({
   onUpdate: (body: { status_hadir?: string; is_converted?: boolean }) => void;
 }) {
   return (
-    <div className="card p-3.5">
+    <div className="card-row">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
@@ -473,7 +473,7 @@ export function AdminMembersPage() {
   const grouped = groupByTeam(data?.items ?? []);
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 lg:space-y-6">
       <PageHeader
         eyebrow="Admin Area"
         title="Kelola Member"
@@ -894,7 +894,7 @@ function MasterData({
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 lg:space-y-6">
       <PageHeader eyebrow="Admin Area" title={title} description={description} />
 
       <form

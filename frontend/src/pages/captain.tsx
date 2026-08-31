@@ -17,7 +17,7 @@ export function CaptainPage() {
   if (!data) return null;
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 lg:space-y-6">
       <PageHeader
         eyebrow="Captain Area"
         title="Panel Kapten"
@@ -78,7 +78,7 @@ function Roster({
   return (
     <ul className="space-y-2">
       {members.map((member) => (
-        <li key={member.id} className="card p-3.5">
+        <li key={member.id} className="card-row">
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
               <p className="truncate text-sm font-bold text-ink">{member.full_name}</p>

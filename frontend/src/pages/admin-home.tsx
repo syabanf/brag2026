@@ -36,7 +36,7 @@ export function AdminHomePage() {
   const pendingCount = pending?.total ?? 0;
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 lg:space-y-6">
       <PageHeader
         eyebrow="Admin Area"
         title="Panel Growth Coordinator"

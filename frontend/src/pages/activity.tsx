@@ -28,7 +28,7 @@ export function ActivityPage() {
   const { data, error, loading, reload } = useApi(() => api.activity(100));
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 lg:space-y-6">
       <PageHeader
         title="Aktivitas Season"
         description="Semua kontribusi yang masuk dari seluruh tim, terbaru di atas."

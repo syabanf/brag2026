@@ -62,7 +62,7 @@ export function PageHeader({
   action?: ReactNode;
 }) {
   return (
-    <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
+    <div className="flex flex-wrap items-start justify-between gap-3">
       <div className="min-w-0">
         {eyebrow && <p className="section-label text-brand-700">{eyebrow}</p>}
         <h1 className="mt-1 text-2xl font-black leading-tight tracking-tight text-ink sm:text-3xl">

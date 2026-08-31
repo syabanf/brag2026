@@ -39,8 +39,8 @@ export function DashboardPage() {
   }
 
   return (
-    <div className="grid gap-5 lg:grid-cols-[1fr_340px]">
-      <section className="space-y-5">
+    <div className="grid gap-4 lg:grid-cols-[1fr_340px] lg:gap-6">
+      <section className="space-y-5 lg:space-y-6">
         <PageHeader
           eyebrow="Member Dashboard"
           title={`Halo, ${firstName}.`}
@@ -50,7 +50,7 @@ export function DashboardPage() {
         />
 
         {/* Row one is season-wide, row two is this member's team. */}
-        <div className="grid grid-cols-2 gap-2.5 sm:gap-3 md:grid-cols-3">
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:gap-4">
           <StatCard
             icon={Receipt}
             tone="emerald"
@@ -102,7 +102,7 @@ export function DashboardPage() {
           )}
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-2 xl:gap-4">
+        <div className="grid gap-3 sm:grid-cols-2 lg:gap-4">
           <QuickAction
             to="/submit?type=tyfcb"
             icon={Gift}
@@ -117,7 +117,7 @@ export function DashboardPage() {
           />
         </div>
 
-        <section className="card p-4">
+        <section className="card">
           <div className="mb-3 flex items-center justify-between gap-3">
             <h2 className="text-base font-black text-ink">TYFCB Terakhir</h2>
             <Link to="/history" className="text-sm font-bold text-brand-600">
@@ -163,8 +163,8 @@ export function DashboardPage() {
         </section>
       </section>
 
-      <aside className="space-y-4">
-        <section className="card p-4">
+      <aside className="space-y-4 lg:space-y-6">
+        <section className="card">
           <h2 className="mb-3 text-base font-black text-ink">Team Standings</h2>
           <ol className="space-y-2">
             {data.teams.slice(0, 10).map((team, index) => {
@@ -219,7 +219,7 @@ export function DashboardPage() {
         )}
 
         {data.badges.length > 0 && (
-          <section className="card p-4">
+          <section className="card">
             <h2 className="mb-3 text-base font-black text-ink">Badge Kamu</h2>
             <div className="flex flex-wrap gap-2">
               {data.badges.map((badge) => {

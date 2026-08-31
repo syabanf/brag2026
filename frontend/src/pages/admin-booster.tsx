@@ -13,7 +13,7 @@ export function AdminBoosterPage() {
   const [creating, setCreating] = useState(false);
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 lg:space-y-6">
       <PageHeader
         eyebrow="Admin Area"
         title="Booster"
@@ -32,7 +32,7 @@ export function AdminBoosterPage() {
 
       <ul className="space-y-2">
         {data?.map((booster) => (
-          <li key={booster.id} className="card p-3.5">
+          <li key={booster.id} className="card-row">
             <div className="flex items-start gap-3">
               <span
                 className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${

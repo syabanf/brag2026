@@ -44,7 +44,7 @@ export function APIKeysPage() {
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 lg:space-y-6">
       <PageHeader
         eyebrow="Pengaturan"
         title="Kunci API"
@@ -120,7 +120,7 @@ function KeyRow({
   const live = !apiKey.revoked_at;
 
   return (
-    <li className="card p-3.5">
+    <li className="card-row">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">

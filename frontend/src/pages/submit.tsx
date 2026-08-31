@@ -21,7 +21,7 @@ export function SubmitPage() {
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 lg:space-y-6">
       <PageHeader
         title="Catat Kontribusi"
         description="Semua submission berstatus pending sampai diverifikasi oleh Growth Coordinator."
@@ -121,7 +121,7 @@ function TyfcbForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="card p-4 sm:p-5">
+    <form onSubmit={handleSubmit} className="card">
       <h2 className="flex items-center gap-2 text-base font-black text-brand-700">
         <Gift className="h-[1.1rem] w-[1.1rem]" />
         TYFCB
@@ -249,7 +249,7 @@ function VisitorForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="card p-4 sm:p-5">
+    <form onSubmit={handleSubmit} className="card">
       <h2 className="flex items-center gap-2 text-base font-black text-brand-700">
         <UserPlus className="h-[1.1rem] w-[1.1rem]" />
         Visitor
@@ -356,7 +356,7 @@ function OneToOneForm() {
 
   return (
     <div className="space-y-4">
-      <form onSubmit={handleSubmit} className="card p-4 sm:p-5">
+      <form onSubmit={handleSubmit} className="card">
         <h2 className="flex items-center gap-2 text-base font-black text-brand-700">
           <Handshake className="h-[1.1rem] w-[1.1rem]" />
           1-2-1

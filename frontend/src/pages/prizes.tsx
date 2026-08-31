@@ -11,7 +11,7 @@ export function PrizesPage() {
   const [tab, setTab] = useState<Tab>("pool");
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 lg:space-y-6">
       <PageHeader
         title="Prize Pool"
         description="Hadiah dialokasikan dua lapis: sebagian untuk pemenang kategori leaderboard, sisanya diundi. Tiket undian dihitung dari poin, visitor hadir, dan TYFCB ke pasangan baru."
@@ -46,7 +46,7 @@ function PrizeList() {
   return (
     <ul className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
       {prizes.map((prize) => (
-        <li key={prize.id} className="card p-4">
+        <li key={prize.id} className="card">
           <div className="flex items-start gap-3">
             <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-brand-50 text-brand-600">
               {prize.alokasi === "undian" ? <Ticket className="h-5 w-5" /> : <Trophy className="h-5 w-5" />}
@@ -150,7 +150,7 @@ function DonateForm({ onDone }: { onDone: () => void }) {
   }
 
   return (
-    <form onSubmit={submit} className="card p-4 sm:p-5">
+    <form onSubmit={submit} className="card">
       <h2 className="flex items-center gap-2 text-base font-black text-brand-700">
         <Gift className="h-[1.1rem] w-[1.1rem]" />
         Donasi hadiah

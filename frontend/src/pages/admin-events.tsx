@@ -14,7 +14,7 @@ export function AdminEventsPage() {
   const [tab, setTab] = useState<Tab>("schedule");
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 lg:space-y-6">
       <PageHeader
         eyebrow="Admin Area"
         title="Event & Bonus"
@@ -206,7 +206,7 @@ function PassRunner() {
 
   return (
     <div className="space-y-4">
-      <section className="card p-4">
+      <section className="card">
         <h2 className="text-base font-black text-ink">Jalankan pass</h2>
         <p className="mt-1.5 text-sm leading-relaxed text-muted">
           Pass menyelesaikan bonus yang bergantung pada periode: Full Roster dan Streak Week per
@@ -249,7 +249,7 @@ function PassRunner() {
       {error && <ErrorNote message={error} />}
 
       {result && (
-        <section className="card p-4">
+        <section className="card">
           <h3 className="section-label mb-2">Hasil · {result.period}</h3>
           <dl className="space-y-1.5 text-sm">
             <Row label="Poin ditambahkan" value={`${result.points_added} pts`} />
@@ -323,7 +323,7 @@ function PrizeAdmin() {
 
   return (
     <div className="space-y-4">
-      <section className="card p-4">
+      <section className="card">
         <h2 className="flex items-center gap-2 text-base font-black text-ink">
           <Ticket className="h-[1.1rem] w-[1.1rem] text-brand-600" />
           Terbitkan tiket undian
@@ -363,7 +363,7 @@ function PrizeAdmin() {
 
       <ul className="space-y-2">
         {data?.map((prize) => (
-          <li key={prize.id} className="card p-3.5">
+          <li key={prize.id} className="card-row">
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-black text-ink">{prize.nama_hadiah}</p>
@@ -508,7 +508,7 @@ function SphereManager() {
 
       <ul className="space-y-2">
         {data?.map((sphere) => (
-          <li key={sphere.id} className="card p-3.5">
+          <li key={sphere.id} className="card-row">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-black text-ink">{sphere.nama}</p>

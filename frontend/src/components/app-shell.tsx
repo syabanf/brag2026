@@ -65,7 +65,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       <TopBar />
 
       {/* The bottom padding only exists where the tab bar does. */}
-      <main className="mx-auto w-full max-w-6xl px-4 pb-28 pt-4 sm:px-6 md:pb-10 lg:px-8">
+      <main className="mx-auto w-full max-w-6xl px-4 pb-28 pt-5 sm:px-6 md:pb-12 lg:px-8 lg:pt-7 lg:pb-16">
         {children}
       </main>
 

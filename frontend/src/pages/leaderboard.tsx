@@ -34,7 +34,7 @@ export function LeaderboardPage({ isPublic = false }: { isPublic?: boolean }) {
   const teams = [...data.teams].sort((a, b) => scoreFor(b, tab) - scoreFor(a, tab));
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 lg:space-y-6">
       <PageHeader
         title="Leaderboard"
         description="Pantau posisi tim di tiap kategori — poin keseluruhan, nilai TYFCB kolektif, dan jumlah visitor yang berhasil diundang."
@@ -43,7 +43,7 @@ export function LeaderboardPage({ isPublic = false }: { isPublic?: boolean }) {
 
       <Tabs tabs={TABS} active={tab} onChange={setTab} />
 
-      <section className="card p-4">
+      <section className="card">
         <div className="mb-3 flex items-center gap-2.5">
           <Trophy className="h-5 w-5 text-brand-600" />
           <h2 className="text-base font-black text-ink">
@@ -65,7 +65,7 @@ export function LeaderboardPage({ isPublic = false }: { isPublic?: boolean }) {
                     : { edge: "", rank: "bg-brand-50 text-brand-700", score: "text-brand-600" };
 
             return (
-              <div key={team.team_id} className={`card p-3 ${accent.edge}`}>
+              <div key={team.team_id} className={`card-row ${accent.edge}`}>
                 <div className="flex items-center justify-between gap-2.5">
                   <div className="flex min-w-0 items-center gap-2.5">
                     <span className={`num grid h-9 w-9 shrink-0 place-items-center rounded-xl text-sm font-black ${accent.rank}`}>
@@ -106,7 +106,7 @@ export function LeaderboardPage({ isPublic = false }: { isPublic?: boolean }) {
       </section>
 
       {!isPublic && data.members.length > 0 && (
-        <section className="card p-4">
+        <section className="card">
           <div className="mb-3 flex items-center gap-2.5">
             <BarChart3 className="h-5 w-5 text-brand-600" />
             <h2 className="text-base font-black text-ink">

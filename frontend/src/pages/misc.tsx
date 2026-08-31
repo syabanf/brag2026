@@ -19,7 +19,7 @@ export function BoosterPage() {
   const boosters = data ?? [];
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 lg:space-y-6">
       <PageHeader
         title="Booster & Event"
         description="Event mingguan mengubah pengali poin. Booster aktif berlaku untuk semua transaksi yang diverifikasi selama periodenya."
@@ -35,7 +35,7 @@ export function BoosterPage() {
               <Link
                 key={booster.id}
                 to={`/booster/${booster.id}`}
-                className={`card p-4 transition active:scale-[0.99] ${active ? "" : "opacity-60"}`}
+                className={`card transition active:scale-[0.99] ${active ? "" : "opacity-60"}`}
               >
                 <div className="flex items-start gap-3">
                   <span
@@ -74,7 +74,7 @@ export function BoosterDetailPage() {
   if (!data) return null;
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 lg:space-y-6">
       <Link to="/booster" className="inline-flex items-center gap-1.5 text-sm font-bold text-brand-600">
         <ArrowLeft className="h-4 w-4" />
         Semua booster
@@ -91,7 +91,7 @@ export function BoosterDetailPage() {
       </div>
 
       {data.deskripsi && (
-        <section className="card p-4">
+        <section className="card">
           <h2 className="section-label mb-2">Deskripsi</h2>
           <p className="text-sm leading-relaxed text-muted">{data.deskripsi}</p>
         </section>
@@ -111,7 +111,7 @@ export function AwardsPage() {
   const badges = data ?? [];
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 lg:space-y-6">
       <PageHeader
         title="Badge & Penghargaan"
         description="Badge diberikan otomatis saat kamu mencapai milestone tertentu sepanjang musim."
@@ -152,7 +152,7 @@ export function HistoryPage() {
   if (!data) return null;
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 lg:space-y-6">
       <PageHeader
         title="Riwayat Kontribusi"
         description="TYFCB yang tercatat atas namamu, beserta status verifikasinya."
@@ -238,10 +238,10 @@ export function ProfilePage() {
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 lg:space-y-6">
       <PageHeader title="Profil" description="Detail akun dan keamanan." />
 
-      <section className="card p-4">
+      <section className="card">
         <dl className="space-y-3">
           <Row label="Nama" value={user?.full_name ?? "—"} />
           <Row label="Email" value={user?.email ?? "—"} />
@@ -255,7 +255,7 @@ export function ProfilePage() {
         </dl>
       </section>
 
-      <form onSubmit={handleSubmit} className="card p-4">
+      <form onSubmit={handleSubmit} className="card">
         <h2 className="flex items-center gap-2 text-base font-black text-ink">
           <KeyRound className="h-[1.1rem] w-[1.1rem] text-brand-600" />
           Ganti kata sandi
