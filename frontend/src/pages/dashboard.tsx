@@ -255,7 +255,7 @@ function QuickAction({
   helper: string;
 }) {
   return (
-    <Link to={to} className="card flex items-center gap-3 p-4 transition active:scale-[0.99]">
+    <Link to={to} className="card-interactive flex items-center gap-3">
       <span className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-brand-600 text-white">
         <Icon className="h-5 w-5" />
       </span>

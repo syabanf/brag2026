@@ -7,6 +7,9 @@ export default {
         brand: {
           50: "#fff1f2",
           100: "#ffe4e6",
+          // The step between the tint and the full red. Three places already
+          // asked for it, and without it here those classes did nothing.
+          200: "#fecdd3",
           500: "#e11d2e",
           600: "#c8102e",
           700: "#a60b24",

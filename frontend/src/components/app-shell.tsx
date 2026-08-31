@@ -59,13 +59,20 @@ const secondaryNav: NavItem[] = [
 ];
 
 export function AppShell({ children }: { children: ReactNode }) {
+  const { pathname } = useLocation();
+
   return (
     <div className="min-h-dvh md:pl-[5.5rem] lg:pl-64">
       <SideNav />
       <TopBar />
 
-      {/* The bottom padding only exists where the tab bar does. */}
-      <main className="mx-auto w-full max-w-6xl px-4 pb-28 pt-5 sm:px-6 md:pb-12 lg:px-8 lg:pt-7 lg:pb-16">
+      {/* The bottom padding only exists where the tab bar does. The key is the
+          path, so the entrance replays on each navigation instead of only
+          when the shell first mounts. */}
+      <main
+        key={pathname}
+        className="page-enter mx-auto w-full max-w-6xl px-4 pb-28 pt-5 sm:px-6 md:pb-12 lg:px-8 lg:pt-7 lg:pb-16"
+      >
         {children}
       </main>
 

@@ -76,7 +76,7 @@ export function AdminHomePage() {
 
       <section className="grid gap-2.5 md:grid-cols-2 xl:grid-cols-3">
         {sections.map(({ to, icon: Icon, label, helper }) => (
-          <Link key={to} to={to} className="card flex items-center gap-3 p-4 transition active:scale-[0.99]">
+          <Link key={to} to={to} className="card-interactive flex items-center gap-3">
             <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-brand-50 text-brand-600">
               <Icon className="h-5 w-5" />
             </span>
@@ -90,7 +90,7 @@ export function AdminHomePage() {
       </section>
 
       <section className="grid gap-2.5 md:grid-cols-2 xl:grid-cols-3">
-        <Link to="/prizes" className="card flex items-center gap-3 p-4 transition active:scale-[0.99]">
+        <Link to="/prizes" className="card-interactive flex items-center gap-3">
           <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-amber-50 text-amber-600">
             <Gift className="h-5 w-5" />
           </span>
@@ -101,7 +101,7 @@ export function AdminHomePage() {
           <ChevronRight className="h-5 w-5 shrink-0 text-muted" />
         </Link>
 
-        <Link to="/activity" className="card flex items-center gap-3 p-4 transition active:scale-[0.99]">
+        <Link to="/activity" className="card-interactive flex items-center gap-3">
           <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-emerald-50 text-emerald-600">
             <Ticket className="h-5 w-5" />
           </span>

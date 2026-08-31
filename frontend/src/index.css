@@ -9,6 +9,21 @@
   --background: #fdfcfc;
   --foreground: #171923;
   --hairline: rgba(23, 25, 35, 0.07);
+
+  /* One easing for everything that moves. A shared curve is most of what
+     separates an interface that feels considered from one where each
+     control was tuned on its own day. It decelerates, so things arrive
+     rather than stop. */
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --fast: 160ms;
+  --base: 240ms;
+
+  /* Three levels of depth, each a near shadow for the edge and a far one
+     for the lift. A single flat shadow is what makes surfaces read as
+     stickers on a page instead of things above it. */
+  --lift-1: 0 1px 2px rgba(23, 25, 35, 0.04), 0 8px 24px -12px rgba(23, 25, 35, 0.12);
+  --lift-2: 0 1px 2px rgba(23, 25, 35, 0.05), 0 14px 32px -14px rgba(23, 25, 35, 0.18);
+  --lift-3: 0 2px 4px rgba(23, 25, 35, 0.06), 0 24px 48px -20px rgba(23, 25, 35, 0.24);
 }
 
 * {
@@ -55,7 +70,30 @@ textarea {
   .card {
     @apply rounded-2xl border bg-white p-4 lg:p-5;
     border-color: var(--hairline);
-    box-shadow: 0 1px 2px rgba(23, 25, 35, 0.04), 0 8px 24px -12px rgba(23, 25, 35, 0.12);
+    box-shadow: var(--lift-1);
+    transition:
+      box-shadow var(--base) var(--ease),
+      transform var(--base) var(--ease),
+      border-color var(--base) var(--ease);
+  }
+
+  /* A card that does something answers the pointer. Applied by hand rather
+     than to every card, because a surface that lifts under the cursor and
+     then does nothing when clicked is a worse lie than a flat one. */
+  .card-interactive {
+    @apply card cursor-pointer;
+  }
+
+  .card-interactive:hover {
+    box-shadow: var(--lift-2);
+    border-color: rgba(200, 16, 46, 0.18);
+    transform: translateY(-2px);
+  }
+
+  .card-interactive:active {
+    transform: translateY(0);
+    box-shadow: var(--lift-1);
+    transition-duration: var(--fast);
   }
 
   /* A row in a list: denser than a card of content, because a dozen of them
@@ -69,15 +107,49 @@ textarea {
   }
 
   .btn-primary {
-    @apply flex min-h-12 items-center justify-center gap-2 rounded-full bg-brand-600 px-5 text-sm font-bold text-white transition hover:bg-brand-700 active:scale-[0.98] disabled:opacity-60;
+    @apply flex min-h-12 items-center justify-center gap-2 rounded-full bg-brand-600 px-5 text-sm font-bold text-white hover:bg-brand-700 active:scale-[0.98] disabled:opacity-60;
+    box-shadow: 0 1px 2px rgba(140, 10, 30, 0.2), 0 8px 20px -10px rgba(200, 16, 46, 0.55);
+    transition:
+      background-color var(--fast) var(--ease),
+      box-shadow var(--base) var(--ease),
+      transform var(--fast) var(--ease);
+  }
+
+  .btn-primary:hover:not(:disabled) {
+    box-shadow: 0 1px 2px rgba(140, 10, 30, 0.24), 0 12px 26px -10px rgba(200, 16, 46, 0.6);
   }
 
   .btn-secondary {
-    @apply flex min-h-12 items-center justify-center gap-2 rounded-full border border-brand-100 bg-white px-5 text-sm font-bold text-ink transition hover:bg-brand-50 active:scale-[0.98] disabled:opacity-60;
+    @apply flex min-h-12 items-center justify-center gap-2 rounded-full border border-brand-100 bg-white px-5 text-sm font-bold text-ink hover:border-brand-200 hover:bg-brand-50 active:scale-[0.98] disabled:opacity-60;
+    transition:
+      background-color var(--fast) var(--ease),
+      border-color var(--fast) var(--ease),
+      transform var(--fast) var(--ease);
   }
 
   .field {
-    @apply w-full rounded-xl border border-brand-100 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-brand-600;
+    @apply w-full rounded-xl border border-brand-100 bg-white px-3 py-2.5 text-sm outline-none;
+    transition:
+      border-color var(--fast) var(--ease),
+      box-shadow var(--fast) var(--ease);
+  }
+
+  /* A ring rather than a border swap. The border alone moves one pixel of
+     colour, which on a page of bordered fields is easy to miss — and this
+     is the only signal a keyboard user gets about where they are. */
+  .field:focus {
+    @apply border-brand-600;
+    box-shadow: 0 0 0 3px rgba(200, 16, 46, 0.12);
+  }
+
+  /* The same ring for anything else reached by keyboard, so focus looks
+     like one idea across the app. */
+  a:focus-visible,
+  button:focus-visible,
+  [role="menuitem"]:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(200, 16, 46, 0.18);
+    border-radius: 0.75rem;
   }
 }
 
@@ -172,18 +244,27 @@ textarea {
 .tour-bar:nth-child(2) { animation-duration: 620ms; }
 .tour-bar:nth-child(3) { animation-duration: 1080ms; }
 
-/* Motion here is decoration. Anyone who has asked for less gets the panel and
-   the steps without it, and the speaking bars hold still rather than pulsing
-   in the corner of their eye. */
+/* The global reduced-motion rule already cuts every animation to nothing, so
+   the panel and the steps need no repeat of it here. The bars do: stopped at
+   an arbitrary keyframe they would sit at whatever height the animation
+   happened to reach, so they are held at a deliberate one instead. */
 @media (prefers-reduced-motion: reduce) {
-  .tour-panel,
-  .tour-scrim,
-  .tour-step-forward,
-  .tour-step-back {
-    animation-duration: 1ms;
-  }
   .tour-bar {
     animation: none;
     transform: scaleY(0.7);
   }
+}
+
+/* ── page entrance ───────────────────────────────────────────────────────
+   Content settles into place on arrival. Short and small on purpose: this
+   runs on every navigation, and anything longer than a quarter second turns
+   into a wait rather than a transition. */
+
+@keyframes page-enter {
+  from { opacity: 0; transform: translateY(0.5rem); }
+  to   { opacity: 1; transform: none; }
+}
+
+.page-enter {
+  animation: page-enter 260ms var(--ease) both;
 }
