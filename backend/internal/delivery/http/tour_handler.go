@@ -6,6 +6,8 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"os"
+	"path/filepath"
 	"sync"
 	"time"
 )
@@ -83,11 +85,81 @@ func (s *Server) handleTourSteps(w http.ResponseWriter, r *http.Request) {
 }
 
 // Narration is identical on every playback, so each clip is synthesised once
-// per process lifetime and replayed from memory afterwards.
+// and replayed afterwards — from memory within a process, and from disk across
+// restarts.
+//
+// The disk half is not an optimisation. A full run of the tour is about 1,450
+// characters and a free ElevenLabs plan allows 10,000 a month, so an
+// in-memory-only cache buys six playthroughs and then every redeploy spends
+// the quota again. Written down, the nine clips cost 1,450 characters once and
+// never again.
 var (
 	tourAudioMu    sync.RWMutex
 	tourAudioCache = map[string][]byte{}
 )
+
+// tourAudioDir is where clips are kept between restarts. Empty disables the
+// disk half and leaves the in-memory cache, which is what a test wants.
+var tourAudioDir = os.Getenv("TOUR_AUDIO_DIR")
+
+// clipPath names a step's file. The id comes from tourSteps in this package,
+// never from the request, but it is checked anyway: a cache key that reaches
+// the filesystem is worth being certain about.
+func clipPath(stepID string) string {
+	if tourAudioDir == "" || !safeStepID(stepID) {
+		return ""
+	}
+	return filepath.Join(tourAudioDir, stepID+".mp3")
+}
+
+func safeStepID(id string) bool {
+	if id == "" || len(id) > 64 {
+		return false
+	}
+	for _, r := range id {
+		if !(r >= 'a' && r <= 'z') && !(r >= '0' && r <= '9') && r != '_' && r != '-' {
+			return false
+		}
+	}
+	return true
+}
+
+// loadClip returns a previously written clip, or nil when there is none.
+func loadClip(stepID string) []byte {
+	path := clipPath(stepID)
+	if path == "" {
+		return nil
+	}
+	body, err := os.ReadFile(path)
+	if err != nil {
+		return nil
+	}
+	return body
+}
+
+// storeClip writes a clip for future restarts. A failure here costs quota on
+// the next boot but nothing today, so it is logged rather than returned.
+func storeClip(stepID string, audio []byte) {
+	path := clipPath(stepID)
+	if path == "" {
+		return
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		slog.Warn("tour audio cache unwritable", "err", err)
+		return
+	}
+	// Written beside the target and renamed, so a crash mid-write cannot
+	// leave a truncated clip that would be served as if it were whole.
+	tmp := path + ".tmp"
+	if err := os.WriteFile(tmp, audio, 0o644); err != nil {
+		slog.Warn("tour audio cache write failed", "err", err)
+		return
+	}
+	if err := os.Rename(tmp, path); err != nil {
+		slog.Warn("tour audio cache rename failed", "err", err)
+		_ = os.Remove(tmp)
+	}
+}
 
 const elevenLabsModel = "eleven_multilingual_v2"
 
@@ -119,8 +191,20 @@ func (s *Server) handleTourVoice(w http.ResponseWriter, r *http.Request) {
 	cached, ok := tourAudioCache[step.ID]
 	tourAudioMu.RUnlock()
 
+	if !ok {
+		// Nothing in memory: this process may still have the clip from an
+		// earlier one. Checking costs a file read; not checking costs quota.
+		if fromDisk := loadClip(step.ID); fromDisk != nil {
+			tourAudioMu.Lock()
+			tourAudioCache[step.ID] = fromDisk
+			tourAudioMu.Unlock()
+			cached, ok = fromDisk, true
+		}
+	}
+
 	if ok {
 		w.Header().Set("Content-Type", "audio/mpeg")
+		w.Header().Set("Cache-Control", "public, max-age=86400")
 		w.Header().Set("X-Cache", "hit")
 		_, _ = w.Write(cached)
 		return
@@ -178,8 +262,10 @@ func (s *Server) handleTourVoice(w http.ResponseWriter, r *http.Request) {
 	tourAudioMu.Lock()
 	tourAudioCache[step.ID] = audio
 	tourAudioMu.Unlock()
+	storeClip(step.ID, audio)
 
 	w.Header().Set("Content-Type", "audio/mpeg")
+	w.Header().Set("Cache-Control", "public, max-age=86400")
 	w.Header().Set("X-Cache", "miss")
 	_, _ = w.Write(audio)
 }

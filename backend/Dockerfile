@@ -28,6 +28,12 @@ COPY --from=build /out/api /app/api
 # Shipped for reference and for running migrations by hand against the volume.
 COPY --from=build /src/migrations /app/migrations
 
+# Created and owned before dropping privileges. Docker gives a fresh named
+# volume the ownership of its mount point, so making it here is what lets the
+# unprivileged process write the narration cache; otherwise the volume arrives
+# owned by root and every write is refused.
+RUN mkdir -p /var/lib/brag/tour-audio && chown -R brag:brag /var/lib/brag
+
 USER brag
 EXPOSE 8080
 

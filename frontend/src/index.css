@@ -102,3 +102,88 @@ textarea {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ── quick tour ──────────────────────────────────────────────────────────
+   The tour is the one place the app talks back, so it is worth the motion:
+   a panel that arrives rather than appears, and content that hands over to
+   the next step instead of being replaced between frames. */
+
+@keyframes tour-rise {
+  from { opacity: 0; transform: translateY(1.25rem) scale(0.97); }
+  to   { opacity: 1; transform: none; }
+}
+
+@keyframes tour-slide-in {
+  from { opacity: 0; transform: translateX(1.5rem); }
+  to   { opacity: 1; transform: none; }
+}
+
+@keyframes tour-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* Content arriving from the side it came from, so forward and back feel
+   like direction rather than a flicker. */
+@keyframes tour-step-forward {
+  from { opacity: 0; transform: translateX(0.75rem); }
+  to   { opacity: 1; transform: none; }
+}
+
+@keyframes tour-step-back {
+  from { opacity: 0; transform: translateX(-0.75rem); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* Three bars keeping time while the narration plays. Different durations so
+   they never fall into lockstep, which reads as a loading spinner instead of
+   a voice. */
+@keyframes tour-speak {
+  0%, 100% { transform: scaleY(0.35); }
+  50%      { transform: scaleY(1); }
+}
+
+.tour-panel {
+  animation: tour-rise 340ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (min-width: 1024px) {
+  .tour-panel {
+    animation-name: tour-slide-in;
+  }
+}
+
+.tour-scrim {
+  animation: tour-fade 240ms ease both;
+}
+
+.tour-step-forward {
+  animation: tour-step-forward 280ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.tour-step-back {
+  animation: tour-step-back 280ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.tour-bar {
+  transform-origin: center;
+  animation: tour-speak 900ms ease-in-out infinite;
+}
+.tour-bar:nth-child(2) { animation-duration: 620ms; }
+.tour-bar:nth-child(3) { animation-duration: 1080ms; }
+
+/* Motion here is decoration. Anyone who has asked for less gets the panel and
+   the steps without it, and the speaking bars hold still rather than pulsing
+   in the corner of their eye. */
+@media (prefers-reduced-motion: reduce) {
+  .tour-panel,
+  .tour-scrim,
+  .tour-step-forward,
+  .tour-step-back {
+    animation-duration: 1ms;
+  }
+  .tour-bar {
+    animation: none;
+    transform: scaleY(0.7);
+  }
+}
